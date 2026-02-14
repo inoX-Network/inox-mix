@@ -21,7 +21,7 @@ function Header(_props: HeaderProps) {
         <span className="text-[11px] font-extrabold tracking-[2px] text-inox-cyan uppercase">
           inoX-MIX
         </span>
-        <span className="text-[9px] font-medium text-[#666] tracking-wider">
+        <span className="text-[9px] font-medium text-inox-muted tracking-wider">
           v{systemInfo?.app_version ?? '0.3'}
         </span>
       </div>
@@ -37,35 +37,35 @@ function Header(_props: HeaderProps) {
                 : 'bg-inox-red shadow-[0_0_4px_rgba(255,23,68,0.5)]'
             }`}
           />
-          <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-[#888]">
+          <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-inox-dim">
             {pwConnected ? 'PW OK' : 'PW OFFLINE'}
           </span>
         </div>
 
-        {/* Sample-Rate */}
+        {/* Audio-Parameter */}
         {systemInfo && (
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-center">
-              <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-[#555]">
+              <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-inox-faint">
                 RATE
               </span>
-              <span className="text-[8px] font-semibold text-[#999]">
+              <span className="text-[8px] font-semibold text-inox-dim">
                 {(systemInfo.sample_rate / 1000).toFixed(1)}k
               </span>
             </div>
             <div className="flex flex-col items-center">
-              <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-[#555]">
+              <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-inox-faint">
                 BUFFER
               </span>
-              <span className="text-[8px] font-semibold text-[#999]">
+              <span className="text-[8px] font-semibold text-inox-dim">
                 {systemInfo.buffer_size}
               </span>
             </div>
             <div className="flex flex-col items-center">
-              <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-[#555]">
+              <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-inox-faint">
                 LATENZ
               </span>
-              <span className="text-[8px] font-semibold text-[#999]">
+              <span className="text-[8px] font-semibold text-inox-dim">
                 {((systemInfo.buffer_size / systemInfo.sample_rate) * 1000).toFixed(1)}ms
               </span>
             </div>
@@ -75,12 +75,13 @@ function Header(_props: HeaderProps) {
 
       {/* Rechts: Streamer-Sidebar Toggle */}
       <button
-        id="btn-header-001"
+        id="btn-001"
+        aria-label="Stream-Sidebar umschalten"
         onClick={toggleSidebar}
         className={`text-[6px] font-bold uppercase tracking-[1px] px-2 py-0.5 rounded border transition-colors ${
           sidebarOpen
             ? 'border-inox-orange text-inox-orange bg-inox-orange/10'
-            : 'border-[rgba(255,255,255,0.1)] text-[#666] hover:text-[#999] hover:border-[rgba(255,255,255,0.2)]'
+            : 'border-[rgba(255,255,255,0.1)] text-inox-muted hover:text-inox-dim hover:border-[rgba(255,255,255,0.2)]'
         }`}
       >
         STREAM

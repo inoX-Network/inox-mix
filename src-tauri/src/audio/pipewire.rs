@@ -4,6 +4,15 @@ use log::{info, error};
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use std::thread;
 
+/// Standard Sample-Rate als Fallback (Hz)
+const DEFAULT_SAMPLE_RATE: u32 = 48000;
+/// Standard Buffer-Größe als Fallback (Samples)
+const DEFAULT_BUFFER_SIZE: u32 = 256;
+/// Wartezeit nach PipeWire-Connect bevor Status geprüft wird (ms)
+const PW_CONNECT_WAIT_MS: u64 = 100;
+/// Name des PipeWire-MainLoop Threads
+const PW_THREAD_NAME: &str = "pipewire-mainloop";
+
 /// Informationen über ein PipeWire-Audio-Gerät
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioDevice {
@@ -80,13 +89,13 @@ impl PipeWireSession {
 
         // PipeWire MainLoop in eigenem Thread starten
         let thread_handle = thread::Builder::new()
-            .name("pipewire-mainloop".to_string())
+            .name(PW_THREAD_NAME.to_string())
             .spawn(move || {
                 Self::run_mainloop(status_clone, running_clone);
             })?;
 
         // Kurz warten und Status prüfen
-        thread::sleep(std::time::Duration::from_millis(100));
+        thread::sleep(std::time::Duration::from_millis(PW_CONNECT_WAIT_MS));
 
         let current_status = status.lock()
             .map_err(|e| format!("Mutex-Fehler: {}", e))?
@@ -196,7 +205,9 @@ impl PipeWireSession {
 impl Drop for PipeWireSession {
     fn drop(&mut self) {
         self.disconnect();
-        // PipeWire deinitialisieren
+        // SAFETY: pipewire::deinit() wird nur einmal aufgerufen beim Drop
+        // der einzigen PipeWireSession-Instanz. Der MainLoop-Thread wurde
+        // zuvor in disconnect() gestoppt und gejoined.
         unsafe { pipewire::deinit(); }
     }
 }
@@ -251,8 +262,8 @@ fn get_default_audio_params() -> (u32, u32) {
         .and_then(|out| String::from_utf8(out.stdout).ok())
         .unwrap_or_default();
 
-    let mut sample_rate: u32 = 48000;
-    let mut buffer_size: u32 = 256;
+    let mut sample_rate: u32 = DEFAULT_SAMPLE_RATE;
+    let mut buffer_size: u32 = DEFAULT_BUFFER_SIZE;
 
     for line in output.lines() {
         if line.contains("clock.rate") || line.contains("clock.force-rate") {

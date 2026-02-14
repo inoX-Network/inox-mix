@@ -20,7 +20,9 @@ function App() {
     // System-Info vom Backend laden
     invoke<SystemInfo>('get_system_info')
       .then((info) => setSystemInfo(info))
-      .catch((err) => console.error('System-Info Fehler:', err));
+      .catch(() => {
+        // Fehler wird über fehlende systemInfo im Header sichtbar
+      });
 
     // PipeWire-Warnung vom Backend empfangen
     const unlistenPromise = listen<string>('pipewire-warning', (event) => {
@@ -33,7 +35,7 @@ function App() {
   }, [setSystemInfo, setPipewireWarning]);
 
   return (
-    <div className="h-screen flex flex-col bg-inox-bg font-oxanium text-[#cccccc] overflow-hidden">
+    <div className="h-screen flex flex-col bg-inox-bg font-oxanium text-inox-text overflow-hidden">
       {/* Header-Leiste */}
       <Header />
 
@@ -96,10 +98,10 @@ function TabContent({ activeTab }: { activeTab: string }) {
       <span className="text-[14px] font-extrabold tracking-[3px] text-inox-cyan uppercase">
         {info.title}
       </span>
-      <span className="text-[8px] font-medium tracking-wider text-[#666]">
+      <span className="text-[8px] font-medium tracking-wider text-inox-muted">
         {info.description}
       </span>
-      <span className="text-[6px] font-bold tracking-[1px] text-[#444] uppercase mt-2">
+      <span className="text-[6px] font-bold tracking-[1px] text-inox-subtle uppercase mt-2">
         Modul wird in späterer Phase implementiert
       </span>
     </div>
@@ -120,14 +122,15 @@ function PipewireWarningBanner() {
         <span className="text-[7px] font-semibold text-inox-red">
           PipeWire nicht verfügbar
         </span>
-        <span className="text-[6px] text-[#888]">
+        <span className="text-[6px] text-inox-dim">
           {pipewireWarning}
         </span>
       </div>
       <button
-        id="btn-pw-warn-dismiss"
+        id="btn-003"
+        aria-label="PipeWire-Warnung schließen"
         onClick={() => setPipewireWarning(null)}
-        className="text-[6px] font-bold text-[#666] hover:text-[#999] tracking-wider uppercase transition-colors"
+        className="text-[6px] font-bold text-inox-muted hover:text-inox-dim tracking-wider uppercase transition-colors"
       >
         SCHLIESSEN
       </button>

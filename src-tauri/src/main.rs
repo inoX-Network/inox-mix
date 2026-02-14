@@ -18,6 +18,9 @@ use log::{info, error, warn};
 use std::sync::Arc;
 use tauri::{Manager, Emitter};
 
+/// Dateiname der SQLite-Datenbank
+const DB_FILENAME: &str = "inox-mix.db";
+
 /// Globaler App-State der über Tauri verwaltet wird
 struct AppState {
     /// Config-Manager für Datenbank-Zugriff
@@ -60,7 +63,7 @@ fn set_config(key: String, value: String, state: tauri::State<'_, AppState>) -> 
 fn get_db_path(app: &tauri::App) -> Result<String, Box<dyn std::error::Error>> {
     let app_data = app.path().app_data_dir()
         .map_err(|e| format!("App-Data Verzeichnis nicht gefunden: {}", e))?;
-    let db_path = app_data.join("inox-mix.db");
+    let db_path = app_data.join(DB_FILENAME);
     Ok(db_path.to_string_lossy().to_string())
 }
 
