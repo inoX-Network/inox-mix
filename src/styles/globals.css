@@ -1,0 +1,49 @@
+/* Globale Styles für inoX-MIX */
+@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Basis-Styles */
+:root {
+  --inox-cyan: #00e5ff;
+  --inox-orange: #ff8c00;
+  --inox-red: #ff1744;
+  --inox-green: #4caf50;
+  --inox-amber: #e6a117;
+  --inox-bg: #08090b;
+  --inox-panel: #0d0f13;
+  --inox-strip: #111318;
+  --inox-border: rgba(255, 255, 255, 0.05);
+  --inox-text: #cccccc;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--inox-bg);
+  color: var(--inox-text);
+  font-family: 'Oxanium', monospace;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Scrollbar-Styling */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--inox-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
