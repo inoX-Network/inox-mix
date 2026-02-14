@@ -11,11 +11,12 @@ mod recording;
 mod calibrate;
 mod updater;
 
+use audio::mixer::{InputStrip, MixerState};
 use audio::pipewire as pw;
 use config::database::Database;
 use config::ConfigManager;
 use log::{info, error, warn};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tauri::{Manager, Emitter};
 
 /// Dateiname der SQLite-Datenbank
@@ -25,6 +26,8 @@ const DB_FILENAME: &str = "inox-mix.db";
 struct AppState {
     /// Config-Manager für Datenbank-Zugriff
     config_manager: ConfigManager,
+    /// Mixer-State mit allen Input-Strips
+    mixer: Mutex<MixerState>,
 }
 
 // --- Tauri Commands ---
@@ -57,6 +60,72 @@ fn get_config(key: String, state: tauri::State<'_, AppState>) -> Result<Option<S
 fn set_config(key: String, value: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
     state.config_manager.set(&key, &value)
         .map_err(|e| format!("Config-Fehler: {}", e))
+}
+
+// --- Mixer Commands (Modul 02) ---
+
+/// Alle Input-Strips als sortierte Liste abrufen
+#[tauri::command]
+fn get_strips(state: tauri::State<'_, AppState>) -> Result<Vec<InputStrip>, String> {
+    let mixer = state.mixer.lock()
+        .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
+    Ok(mixer.get_strips())
+}
+
+/// Lautstärke eines Strips setzen (in dB)
+#[tauri::command]
+fn set_strip_volume(strip_id: String, volume_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut mixer = state.mixer.lock()
+        .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
+    mixer.set_volume(&strip_id, volume_db)
+}
+
+/// Gain eines Strips setzen (in dB)
+#[tauri::command]
+fn set_strip_gain(strip_id: String, gain_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut mixer = state.mixer.lock()
+        .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
+    mixer.set_gain(&strip_id, gain_db)
+}
+
+/// Stummschaltung eines Strips setzen
+#[tauri::command]
+fn set_strip_mute(strip_id: String, muted: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut mixer = state.mixer.lock()
+        .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
+    mixer.set_mute(&strip_id, muted)
+}
+
+/// Solo-Modus eines Strips setzen
+#[tauri::command]
+fn set_strip_solo(strip_id: String, solo: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut mixer = state.mixer.lock()
+        .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
+    mixer.set_solo(&strip_id, solo)
+}
+
+/// Bus-Routing eines Strips ändern (Bus hinzufügen/entfernen)
+#[tauri::command]
+fn set_strip_bus(strip_id: String, bus_id: String, active: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut mixer = state.mixer.lock()
+        .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
+    mixer.set_bus_routing(&strip_id, &bus_id, active)
+}
+
+/// Neuen Virtual-Strip hinzufügen
+#[tauri::command]
+fn add_virtual_strip(state: tauri::State<'_, AppState>) -> Result<InputStrip, String> {
+    let mut mixer = state.mixer.lock()
+        .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
+    mixer.add_virtual_strip()
+}
+
+/// Virtual-Strip entfernen
+#[tauri::command]
+fn remove_virtual_strip(strip_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut mixer = state.mixer.lock()
+        .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
+    mixer.remove_virtual_strip(&strip_id)
 }
 
 /// Datenbank-Pfad ermitteln (im Tauri App-Data Verzeichnis)
@@ -105,8 +174,15 @@ fn main() {
                 }
             }
 
-            // 4. App-State registrieren
-            app.manage(AppState { config_manager });
+            // 4. Mixer-State erstellen
+            let mixer = MixerState::new();
+            info!("Mixer initialisiert mit {} Strips", mixer.strip_count());
+
+            // 5. App-State registrieren
+            app.manage(AppState {
+                config_manager,
+                mixer: Mutex::new(mixer),
+            });
 
             info!("Setup abgeschlossen");
             Ok(())
@@ -115,6 +191,14 @@ fn main() {
             get_system_info,
             get_config,
             set_config,
+            get_strips,
+            set_strip_volume,
+            set_strip_gain,
+            set_strip_mute,
+            set_strip_solo,
+            set_strip_bus,
+            add_virtual_strip,
+            remove_virtual_strip,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Tauri-Anwendung");

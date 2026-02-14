@@ -1,22 +1,27 @@
-// Komponente: FXButton — FX-Chain Ein/Aus Toggle pro Strip
+// Component: FXButton — FX-Chain Ein/Aus Toggle pro Strip
 
-/** FX-Chain Toggle-Button auf dem Channel Strip */
 interface FXButtonProps {
   /** FX-Chain aktiv */
-  active?: boolean;
+  active: boolean;
   /** Callback bei Klick */
-  onClick?: () => void;
+  onClick: () => void;
 }
 
-function FXButton(_props: FXButtonProps) {
-  // TODO: "FX" Label
-  // TODO: Aktiv: Cyan-Hintergrund
-  // TODO: Inaktiv: Grau, gedimmt
+/**
+ * FX-Chain Toggle-Button
+ * Cyan wenn aktiv, grau wenn inaktiv
+ */
+export default function FXButton({ active, onClick }: FXButtonProps) {
   return (
-    <button className="text-[5px] font-bold uppercase tracking-wider">
-      {/* TODO: FX-Label */}
+    <button
+      className={`px-1.5 py-0.5 text-[5px] font-bold uppercase tracking-wider rounded-sm transition-all ${
+        active ? 'bg-inox-cyan text-inox-bg' : 'bg-inox-subtle/30 text-inox-muted border border-inox-subtle'
+      }`}
+      onClick={onClick}
+      aria-label="FX-Chain"
+      aria-pressed={active}
+    >
+      FX
     </button>
   );
 }
-
-export default FXButton;

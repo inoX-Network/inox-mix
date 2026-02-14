@@ -5,6 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import Header from './components/layout/Header';
 import TabBar from './components/layout/TabBar';
 import StreamSidebar from './components/streamer/StreamSidebar';
+import Mixer from './components/mixer/Mixer';
 import { useAppStore } from './stores/appStore';
 import type { SystemInfo } from './types/api';
 
@@ -61,14 +62,15 @@ function App() {
   );
 }
 
-/** Platzhalter-Inhalt je nach aktivem Tab (wird in späteren Modulen implementiert) */
+/** Tab-Content: Mixer oder Platzhalter */
 function TabContent({ activeTab }: { activeTab: string }) {
-  /** Tab-Beschreibungen für Platzhalter */
+  // Mixer-Tab
+  if (activeTab === 'mixer') {
+    return <Mixer />;
+  }
+
+  // Andere Tabs: Platzhalter
   const tabInfo: Record<string, { title: string; description: string }> = {
-    mixer: {
-      title: 'MIXER',
-      description: 'Hardware Inputs, Virtual Inputs, Signal Monitor, Master, Output Busse',
-    },
     fx: {
       title: 'FX CHAIN',
       description: 'HPF, DeNoise, Gate, DeEsser, EQ, Compressor, Limiter, AutoGain',
