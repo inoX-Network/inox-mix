@@ -11,6 +11,7 @@ mod recording;
 mod calibrate;
 mod updater;
 
+use audio::bus::{BusManager, OutputBus};
 use audio::mixer::{InputStrip, MixerState};
 use audio::pipewire as pw;
 use config::database::Database;
@@ -28,6 +29,8 @@ struct AppState {
     config_manager: ConfigManager,
     /// Mixer-State mit allen Input-Strips
     mixer: Mutex<MixerState>,
+    /// Bus-Manager mit allen Output-Bussen
+    buses: Mutex<BusManager>,
 }
 
 // --- Tauri Commands ---
@@ -128,6 +131,32 @@ fn remove_virtual_strip(strip_id: String, state: tauri::State<'_, AppState>) -> 
     mixer.remove_virtual_strip(&strip_id)
 }
 
+// --- Bus Commands (Modul 04) ---
+
+/// Alle Output-Busse als sortierte Liste abrufen
+#[tauri::command]
+fn get_buses(state: tauri::State<'_, AppState>) -> Result<Vec<OutputBus>, String> {
+    let buses = state.buses.lock()
+        .map_err(|e| format!("Bus-Lock-Fehler: {}", e))?;
+    Ok(buses.get_buses())
+}
+
+/// Lautstärke eines Bus setzen (in dB)
+#[tauri::command]
+fn set_bus_volume(bus_id: String, volume_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut buses = state.buses.lock()
+        .map_err(|e| format!("Bus-Lock-Fehler: {}", e))?;
+    buses.set_volume(&bus_id, volume_db)
+}
+
+/// Stummschaltung eines Bus setzen
+#[tauri::command]
+fn set_bus_mute(bus_id: String, muted: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut buses = state.buses.lock()
+        .map_err(|e| format!("Bus-Lock-Fehler: {}", e))?;
+    buses.set_mute(&bus_id, muted)
+}
+
 /// Datenbank-Pfad ermitteln (im Tauri App-Data Verzeichnis)
 fn get_db_path(app: &tauri::App) -> Result<String, Box<dyn std::error::Error>> {
     let app_data = app.path().app_data_dir()
@@ -178,10 +207,15 @@ fn main() {
             let mixer = MixerState::new();
             info!("Mixer initialisiert mit {} Strips", mixer.strip_count());
 
-            // 5. App-State registrieren
+            // 5. Bus-Manager erstellen
+            let buses = BusManager::new();
+            info!("Bus-Manager initialisiert mit {} Bussen", buses.bus_count());
+
+            // 6. App-State registrieren
             app.manage(AppState {
                 config_manager,
                 mixer: Mutex::new(mixer),
+                buses: Mutex::new(buses),
             });
 
             info!("Setup abgeschlossen");
@@ -199,6 +233,9 @@ fn main() {
             set_strip_bus,
             add_virtual_strip,
             remove_virtual_strip,
+            get_buses,
+            set_bus_volume,
+            set_bus_mute,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Tauri-Anwendung");

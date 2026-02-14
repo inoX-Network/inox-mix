@@ -3,6 +3,7 @@
 pub mod pipewire;
 pub mod mixer;
 pub mod metering;
+pub mod bus;
 
 use self::pipewire::{PipeWireSession, PipeWireStatus};
 use log::{info, error};
