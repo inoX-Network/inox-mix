@@ -11,6 +11,8 @@ mod recording;
 mod calibrate;
 mod updater;
 
+use recording::{RecordingEngine, RecordingFormat, RecordingInfo, ActiveRecording};
+
 use audio::bus::{BusManager, OutputBus};
 use audio::mixer::{InputStrip, MixerState};
 use audio::routing::{RoutingManager, RoutingEntry};
@@ -40,6 +42,8 @@ struct AppState {
     routing: Mutex<RoutingManager>,
     /// Master-Sektion (Master Volume, Limiter, DIM, MONO, Talkback)
     master: Mutex<MasterManager>,
+    /// Recording-Engine für Audio-Aufnahmen
+    recording: Mutex<RecordingEngine>,
 }
 
 // --- Tauri Commands ---
@@ -278,6 +282,39 @@ fn set_talkback(
     master.set_talkback(active, target_buses)
 }
 
+// --- Recording Commands (Modul 11) ---
+
+/// Aufnahme starten
+#[tauri::command]
+fn start_recording(
+    source_id: String,
+    format: RecordingFormat,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut recording = state.recording.lock()
+        .map_err(|e| format!("Recording-Lock-Fehler: {}", e))?;
+    recording.start(&source_id, format)
+}
+
+/// Aufnahme stoppen
+#[tauri::command]
+fn stop_recording(
+    source_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<RecordingInfo, String> {
+    let mut recording = state.recording.lock()
+        .map_err(|e| format!("Recording-Lock-Fehler: {}", e))?;
+    recording.stop(&source_id)
+}
+
+/// Alle aktiven Aufnahmen abrufen
+#[tauri::command]
+fn get_recording_status(state: tauri::State<'_, AppState>) -> Result<Vec<ActiveRecording>, String> {
+    let recording = state.recording.lock()
+        .map_err(|e| format!("Recording-Lock-Fehler: {}", e))?;
+    Ok(recording.get_active_recordings())
+}
+
 /// Datenbank-Pfad ermitteln (im Tauri App-Data Verzeichnis)
 fn get_db_path(app: &tauri::App) -> Result<String, Box<dyn std::error::Error>> {
     let app_data = app.path().app_data_dir()
@@ -344,7 +381,11 @@ fn main() {
             let master = MasterManager::new();
             info!("Master-Sektion initialisiert");
 
-            // 9. App-State registrieren
+            // 9. Recording-Engine erstellen
+            let recording = RecordingEngine::new();
+            info!("Recording-Engine initialisiert");
+
+            // 10. App-State registrieren
             app.manage(AppState {
                 config_manager,
                 mixer: Mutex::new(mixer),
@@ -352,6 +393,7 @@ fn main() {
                 fx_chain: Mutex::new(fx_chain),
                 routing: Mutex::new(routing),
                 master: Mutex::new(master),
+                recording: Mutex::new(recording),
             });
 
             info!("Setup abgeschlossen");
@@ -383,6 +425,9 @@ fn main() {
             set_dim,
             set_mono,
             set_talkback,
+            start_recording,
+            stop_recording,
+            get_recording_status,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Tauri-Anwendung");
