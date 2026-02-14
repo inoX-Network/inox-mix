@@ -16,6 +16,7 @@ use audio::mixer::{InputStrip, MixerState};
 use audio::pipewire as pw;
 use config::database::Database;
 use config::ConfigManager;
+use fx::{FxChain, FxModuleInfo, FxModuleType};
 use log::{info, error, warn};
 use std::sync::{Arc, Mutex};
 use tauri::{Manager, Emitter};
@@ -31,6 +32,8 @@ struct AppState {
     mixer: Mutex<MixerState>,
     /// Bus-Manager mit allen Output-Bussen
     buses: Mutex<BusManager>,
+    /// FX-Chain (Phase 1: Global, später pro Strip)
+    fx_chain: Mutex<FxChain>,
 }
 
 // --- Tauri Commands ---
@@ -157,6 +160,41 @@ fn set_bus_mute(bus_id: String, muted: bool, state: tauri::State<'_, AppState>) 
     buses.set_mute(&bus_id, muted)
 }
 
+// --- FX Commands (Modul 03 - Phase 1) ---
+
+/// FX-Chain Module abrufen (Phase 1: Global, später pro strip_id)
+#[tauri::command]
+fn get_fx_chain(state: tauri::State<'_, AppState>) -> Result<Vec<FxModuleInfo>, String> {
+    let fx = state.fx_chain.lock()
+        .map_err(|e| format!("FX-Lock-Fehler: {}", e))?;
+    Ok(fx.get_all_modules())
+}
+
+/// FX-Parameter setzen
+#[tauri::command]
+fn set_fx_param(
+    module_type: FxModuleType,
+    param_name: String,
+    value: f32,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut fx = state.fx_chain.lock()
+        .map_err(|e| format!("FX-Lock-Fehler: {}", e))?;
+    fx.set_param(module_type, &param_name, value)
+}
+
+/// FX-Bypass setzen
+#[tauri::command]
+fn set_fx_bypass(
+    module_type: FxModuleType,
+    bypass: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut fx = state.fx_chain.lock()
+        .map_err(|e| format!("FX-Lock-Fehler: {}", e))?;
+    fx.set_bypass(module_type, bypass)
+}
+
 /// Datenbank-Pfad ermitteln (im Tauri App-Data Verzeichnis)
 fn get_db_path(app: &tauri::App) -> Result<String, Box<dyn std::error::Error>> {
     let app_data = app.path().app_data_dir()
@@ -211,11 +249,16 @@ fn main() {
             let buses = BusManager::new();
             info!("Bus-Manager initialisiert mit {} Bussen", buses.bus_count());
 
-            // 6. App-State registrieren
+            // 6. FX-Chain erstellen (Phase 1: Global)
+            let fx_chain = FxChain::new();
+            info!("FX-Chain initialisiert (Phase 1: HPF + Gate)");
+
+            // 7. App-State registrieren
             app.manage(AppState {
                 config_manager,
                 mixer: Mutex::new(mixer),
                 buses: Mutex::new(buses),
+                fx_chain: Mutex::new(fx_chain),
             });
 
             info!("Setup abgeschlossen");
@@ -236,6 +279,9 @@ fn main() {
             get_buses,
             set_bus_volume,
             set_bus_mute,
+            get_fx_chain,
+            set_fx_param,
+            set_fx_bypass,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Tauri-Anwendung");
