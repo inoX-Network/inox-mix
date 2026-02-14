@@ -7,7 +7,9 @@ import TabBar from './components/layout/TabBar';
 import StreamSidebar from './components/streamer/StreamSidebar';
 import Mixer from './components/mixer/Mixer';
 import { useAppStore } from './stores/appStore';
+import { useMixerStore } from './stores/mixerStore';
 import type { SystemInfo } from './types/api';
+import type { StripLevels } from './types/mixer';
 
 /** inoX-MIX Hauptanwendung — verwaltet Layout und Navigation */
 function App() {
@@ -30,8 +32,14 @@ function App() {
       setPipewireWarning(event.payload);
     });
 
+    // VU-Meter Level-Updates empfangen (60fps)
+    const unlistenLevels = listen<StripLevels>('level_update', (event) => {
+      useMixerStore.getState().updateLevels(event.payload);
+    });
+
     return () => {
       unlistenPromise.then((unlisten) => unlisten());
+      unlistenLevels.then((unlisten) => unlisten());
     };
   }, [setSystemInfo, setPipewireWarning]);
 

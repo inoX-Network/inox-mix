@@ -36,6 +36,13 @@ export default function Strip({ strip }: StripProps) {
 
   return (
     <div className="min-w-[56px] bg-inox-strip border border-[rgba(255,255,255,0.05)] rounded-[5px] flex flex-col gap-1 p-2 pt-1">
+      {/* Dock Handle (6 Dots, Drag & Drop vorbereitet) */}
+      <div className="flex gap-0.5 justify-center mb-1 opacity-30 cursor-grab">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="w-[2px] h-[2px] bg-inox-subtle rounded-full" />
+        ))}
+      </div>
+
       {/* Top Accent */}
       <div className={`h-[2px] ${accentColor} rounded-full -mx-1`} />
 
