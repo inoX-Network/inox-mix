@@ -12,6 +12,7 @@ mod calibrate;
 mod updater;
 
 use recording::{RecordingEngine, RecordingFormat, RecordingInfo, ActiveRecording};
+use config::presets::{SceneManager, Scene, SceneInfo};
 
 use audio::bus::{BusManager, OutputBus};
 use audio::mixer::{InputStrip, MixerState};
@@ -44,6 +45,8 @@ struct AppState {
     master: Mutex<MasterManager>,
     /// Recording-Engine für Audio-Aufnahmen
     recording: Mutex<RecordingEngine>,
+    /// Scene-Manager für Szenen-Verwaltung
+    scenes: SceneManager,
 }
 
 // --- Tauri Commands ---
@@ -315,6 +318,36 @@ fn get_recording_status(state: tauri::State<'_, AppState>) -> Result<Vec<ActiveR
     Ok(recording.get_active_recordings())
 }
 
+// --- Scene Commands (Modul 10) ---
+
+/// Scene speichern (kompletter Mixer-State Snapshot)
+#[tauri::command]
+fn save_scene(
+    name: String,
+    state_json: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
+    state.scenes.save_scene(&name, &state_json)
+}
+
+/// Scene laden
+#[tauri::command]
+fn load_scene(id: String, state: tauri::State<'_, AppState>) -> Result<Scene, String> {
+    state.scenes.load_scene(&id)
+}
+
+/// Scene löschen
+#[tauri::command]
+fn delete_scene(id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.scenes.delete_scene(&id)
+}
+
+/// Alle Scenes auflisten
+#[tauri::command]
+fn get_scenes(state: tauri::State<'_, AppState>) -> Result<Vec<SceneInfo>, String> {
+    state.scenes.list_scenes()
+}
+
 /// Datenbank-Pfad ermitteln (im Tauri App-Data Verzeichnis)
 fn get_db_path(app: &tauri::App) -> Result<String, Box<dyn std::error::Error>> {
     let app_data = app.path().app_data_dir()
@@ -385,7 +418,11 @@ fn main() {
             let recording = RecordingEngine::new();
             info!("Recording-Engine initialisiert");
 
-            // 10. App-State registrieren
+            // 10. Scene-Manager erstellen
+            let scenes = SceneManager::new(db.clone());
+            info!("Scene-Manager initialisiert");
+
+            // 11. App-State registrieren
             app.manage(AppState {
                 config_manager,
                 mixer: Mutex::new(mixer),
@@ -394,6 +431,7 @@ fn main() {
                 routing: Mutex::new(routing),
                 master: Mutex::new(master),
                 recording: Mutex::new(recording),
+                scenes,
             });
 
             info!("Setup abgeschlossen");
@@ -428,6 +466,10 @@ fn main() {
             start_recording,
             stop_recording,
             get_recording_status,
+            save_scene,
+            load_scene,
+            delete_scene,
+            get_scenes,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Tauri-Anwendung");

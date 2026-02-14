@@ -7,7 +7,7 @@ use log::{info, error};
 /// Datenbank-Manager für SQLite — Thread-sicher über Mutex
 pub struct Database {
     /// SQLite-Verbindung (Mutex für Thread-Sicherheit)
-    conn: Mutex<Connection>,
+    pub(crate) conn: Mutex<Connection>,
 }
 
 impl std::fmt::Debug for Database {
@@ -80,7 +80,7 @@ impl Database {
             CREATE TABLE IF NOT EXISTS scenes (
                 id         TEXT PRIMARY KEY NOT NULL,
                 name       TEXT NOT NULL,
-                preset_ids TEXT NOT NULL,
+                state_json TEXT NOT NULL,
                 created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
             );
 
