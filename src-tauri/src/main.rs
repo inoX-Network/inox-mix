@@ -14,6 +14,7 @@ mod updater;
 use audio::bus::{BusManager, OutputBus};
 use audio::mixer::{InputStrip, MixerState};
 use audio::routing::{RoutingManager, RoutingEntry};
+use audio::master::{MasterManager, MasterState};
 use audio::pipewire as pw;
 use config::database::Database;
 use config::ConfigManager;
@@ -37,6 +38,8 @@ struct AppState {
     fx_chain: Mutex<FxChain>,
     /// Routing-Manager (Audio-Routing Matrix)
     routing: Mutex<RoutingManager>,
+    /// Master-Sektion (Master Volume, Limiter, DIM, MONO, Talkback)
+    master: Mutex<MasterManager>,
 }
 
 // --- Tauri Commands ---
@@ -221,6 +224,60 @@ fn set_routing(
     routing.set_routing(&source_id, &bus_id, active)
 }
 
+// --- Master Commands (Modul 12) ---
+
+/// Master-State abrufen
+#[tauri::command]
+fn get_master(state: tauri::State<'_, AppState>) -> Result<MasterState, String> {
+    let master = state.master.lock()
+        .map_err(|e| format!("Master-Lock-Fehler: {}", e))?;
+    Ok(master.get_state())
+}
+
+/// Master Volume setzen (in dB)
+#[tauri::command]
+fn set_master_volume(volume_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut master = state.master.lock()
+        .map_err(|e| format!("Master-Lock-Fehler: {}", e))?;
+    master.set_volume(volume_db)
+}
+
+/// Master Limiter Ceiling setzen (in dB)
+#[tauri::command]
+fn set_master_limiter(ceiling_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut master = state.master.lock()
+        .map_err(|e| format!("Master-Lock-Fehler: {}", e))?;
+    master.set_limiter(ceiling_db)
+}
+
+/// DIM-Funktion setzen
+#[tauri::command]
+fn set_dim(active: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut master = state.master.lock()
+        .map_err(|e| format!("Master-Lock-Fehler: {}", e))?;
+    master.set_dim(active)
+}
+
+/// Mono-Check setzen
+#[tauri::command]
+fn set_mono(active: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut master = state.master.lock()
+        .map_err(|e| format!("Master-Lock-Fehler: {}", e))?;
+    master.set_mono(active)
+}
+
+/// Talkback setzen
+#[tauri::command]
+fn set_talkback(
+    active: bool,
+    target_buses: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut master = state.master.lock()
+        .map_err(|e| format!("Master-Lock-Fehler: {}", e))?;
+    master.set_talkback(active, target_buses)
+}
+
 /// Datenbank-Pfad ermitteln (im Tauri App-Data Verzeichnis)
 fn get_db_path(app: &tauri::App) -> Result<String, Box<dyn std::error::Error>> {
     let app_data = app.path().app_data_dir()
@@ -283,13 +340,18 @@ fn main() {
             let routing = RoutingManager::new();
             info!("Routing-Manager initialisiert");
 
-            // 8. App-State registrieren
+            // 8. Master-Sektion erstellen
+            let master = MasterManager::new();
+            info!("Master-Sektion initialisiert");
+
+            // 9. App-State registrieren
             app.manage(AppState {
                 config_manager,
                 mixer: Mutex::new(mixer),
                 buses: Mutex::new(buses),
                 fx_chain: Mutex::new(fx_chain),
                 routing: Mutex::new(routing),
+                master: Mutex::new(master),
             });
 
             info!("Setup abgeschlossen");
@@ -315,6 +377,12 @@ fn main() {
             set_fx_bypass,
             get_routing_matrix,
             set_routing,
+            get_master,
+            set_master_volume,
+            set_master_limiter,
+            set_dim,
+            set_mono,
+            set_talkback,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Tauri-Anwendung");

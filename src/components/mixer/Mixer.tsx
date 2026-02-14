@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Strip from './Strip';
 import BusSection from '../bus/BusSection';
 import FxPanel from '../fx/FxPanel';
+import MasterSection from '../master/MasterSection';
 import { useMixerStore } from '../../stores/mixerStore';
 
 /**
@@ -37,23 +38,31 @@ export default function Mixer() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Input Strips Section */}
-      <div className="flex gap-2 p-4 overflow-x-auto flex-1">
-        {/* Input Strips */}
-        {strips.map((strip) => (
-          <Strip key={strip.id} strip={strip} />
-        ))}
+      {/* Top Section: Input Strips + Master */}
+      <div className="flex gap-4 p-4 overflow-x-auto flex-1">
+        {/* Input Strips Scroll Container */}
+        <div className="flex gap-2 flex-1">
+          {/* Input Strips */}
+          {strips.map((strip) => (
+            <Strip key={strip.id} strip={strip} />
+          ))}
 
-        {/* Plus-Button für Virtual-Strips */}
-        {canAddVirtual && (
-          <button
-            className="min-w-[56px] h-auto bg-inox-panel border-2 border-dashed border-inox-orange/30 rounded-[5px] flex items-center justify-center text-inox-orange hover:border-inox-orange/60 hover:bg-inox-strip transition-all"
-            onClick={addVirtualStrip}
-            aria-label="Virtual-Strip hinzufügen"
-          >
-            <span className="text-2xl">+</span>
-          </button>
-        )}
+          {/* Plus-Button für Virtual-Strips */}
+          {canAddVirtual && (
+            <button
+              className="min-w-[56px] h-auto bg-inox-panel border-2 border-dashed border-inox-orange/30 rounded-[5px] flex items-center justify-center text-inox-orange hover:border-inox-orange/60 hover:bg-inox-strip transition-all"
+              onClick={addVirtualStrip}
+              aria-label="Virtual-Strip hinzufügen"
+            >
+              <span className="text-2xl">+</span>
+            </button>
+          )}
+        </div>
+
+        {/* Master Section (rechts, immer sichtbar) */}
+        <div className="shrink-0">
+          <MasterSection />
+        </div>
       </div>
 
       {/* Output Busse Section */}
