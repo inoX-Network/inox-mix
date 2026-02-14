@@ -6,6 +6,7 @@ import Header from './components/layout/Header';
 import TabBar from './components/layout/TabBar';
 import StreamSidebar from './components/streamer/StreamSidebar';
 import Mixer from './components/mixer/Mixer';
+import RoutingMatrix from './components/routing/RoutingMatrix';
 import { useAppStore } from './stores/appStore';
 import { useMixerStore } from './stores/mixerStore';
 import type { SystemInfo } from './types/api';
@@ -75,6 +76,11 @@ function TabContent({ activeTab }: { activeTab: string }) {
   // Mixer-Tab
   if (activeTab === 'mixer') {
     return <Mixer />;
+  }
+
+  // Routing-Tab
+  if (activeTab === 'routing') {
+    return <RoutingMatrix />;
   }
 
   // Andere Tabs: Platzhalter

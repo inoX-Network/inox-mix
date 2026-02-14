@@ -311,6 +311,112 @@ pub fn check_pipewire_available() -> Result<(), String> {
     Ok(())
 }
 
+// --- Audio-Routing Link-Management ---
+
+/// Audio-Link erstellen (Source → Bus Verbindung)
+///
+/// Phase 2a: Nutzt pw-link CLI-Tool zum Erstellen von Audio-Verbindungen.
+/// Erstellt einen Link zwischen einem Source-Port und einem Bus-Port.
+///
+/// # Argumente
+/// * `source_id` - Logische Source-ID (z.B. "mic-1", "app-browser")
+/// * `bus_id` - Bus-ID (A1, A2, B1, B2)
+///
+/// # Phase 2b TODO
+/// - Node-Discovery: Source/Bus IDs zu PipeWire Node/Port-Namen mappen
+/// - Virtual Bus Nodes erstellen (aktuell müssen Busse vorher existieren)
+/// - Link-ID zurückgeben und tracken für späteres Entfernen
+pub fn create_audio_link(source_id: &str, bus_id: &str) -> Result<(), String> {
+    info!("Audio-Link erstellen: {} → {}", source_id, bus_id);
+
+    // Phase 2a: Logischer Mapping-Layer (Source/Bus ID → PipeWire Port-Namen)
+    let source_port = map_source_to_port(source_id)?;
+    let bus_port = map_bus_to_port(bus_id)?;
+
+    // pw-link CLI-Tool nutzen um Link zu erstellen
+    let output = std::process::Command::new("pw-link")
+        .arg(&source_port)
+        .arg(&bus_port)
+        .output()
+        .map_err(|e| format!("pw-link konnte nicht ausgeführt werden: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        error!("pw-link Fehler: {}", stderr);
+        return Err(format!("Link konnte nicht erstellt werden: {}", stderr));
+    }
+
+    info!("Audio-Link erfolgreich erstellt: {} → {}", source_port, bus_port);
+    Ok(())
+}
+
+/// Audio-Link entfernen (Source → Bus Verbindung trennen)
+///
+/// Phase 2a: Nutzt pw-link CLI-Tool mit -d Flag zum Entfernen.
+///
+/// # Argumente
+/// * `source_id` - Logische Source-ID
+/// * `bus_id` - Bus-ID
+pub fn remove_audio_link(source_id: &str, bus_id: &str) -> Result<(), String> {
+    info!("Audio-Link entfernen: {} → {}", source_id, bus_id);
+
+    let source_port = map_source_to_port(source_id)?;
+    let bus_port = map_bus_to_port(bus_id)?;
+
+    // pw-link mit -d Flag zum Trennen
+    let output = std::process::Command::new("pw-link")
+        .arg("-d")
+        .arg(&source_port)
+        .arg(&bus_port)
+        .output()
+        .map_err(|e| format!("pw-link konnte nicht ausgeführt werden: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        error!("pw-link -d Fehler: {}", stderr);
+        return Err(format!("Link konnte nicht entfernt werden: {}", stderr));
+    }
+
+    info!("Audio-Link erfolgreich entfernt: {} → {}", source_port, bus_port);
+    Ok(())
+}
+
+/// Mapping: Logische Source-ID → PipeWire Port-Name
+///
+/// Phase 2a: Hardcoded Mapping für bekannte Sources.
+/// Phase 2b TODO: Dynamische Node-Discovery über PipeWire Registry
+fn map_source_to_port(source_id: &str) -> Result<String, String> {
+    // Beispiel-Mapping (muss an reale PipeWire-Nodes angepasst werden)
+    let port = match source_id {
+        "mic-1" => "alsa_input.pci-0000_00_1f.3.analog-stereo:capture_FL",
+        "mic-2" => "alsa_input.usb-0000_00_14.0.analog-stereo:capture_FL",
+        id if id.starts_with("app-") => {
+            // App-Audio: Format "app-browser" → "Firefox:output_FL" (würde Discovery benötigen)
+            return Err(format!("App-Audio Routing noch nicht implementiert: {}", id));
+        }
+        _ => return Err(format!("Unbekannte Source-ID: {}", source_id)),
+    };
+
+    Ok(port.to_string())
+}
+
+/// Mapping: Bus-ID → PipeWire Port-Name
+///
+/// Phase 2a: Placeholder — Busse müssen als virtuelle PipeWire Nodes existieren.
+/// Phase 2b TODO: Virtual Bus Nodes erstellen (z.B. "inoX-Bus-A1:input_FL")
+fn map_bus_to_port(bus_id: &str) -> Result<String, String> {
+    // Virtual Bus Nodes müssten zuerst erstellt werden
+    let port = match bus_id {
+        "A1" => "inoX-Bus-A1:input_FL",
+        "A2" => "inoX-Bus-A2:input_FL",
+        "B1" => "inoX-Bus-B1:input_FL",
+        "B2" => "inoX-Bus-B2:input_FL",
+        _ => return Err(format!("Ungültige Bus-ID: {}", bus_id)),
+    };
+
+    Ok(port.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -357,5 +463,63 @@ mod tests {
         let json = serde_json::to_string(&device);
         assert!(json.is_ok());
         assert!(json.unwrap().contains("Test-Mikrofon"));
+    }
+
+    // --- Link-Management Tests ---
+
+    #[test]
+    fn test_map_source_to_port_valid() {
+        let result = map_source_to_port("mic-1");
+        assert!(result.is_ok());
+        assert!(result.unwrap().contains("capture"));
+    }
+
+    #[test]
+    fn test_map_source_to_port_invalid() {
+        let result = map_source_to_port("unknown-source");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Unbekannte Source-ID"));
+    }
+
+    #[test]
+    fn test_map_source_to_port_app() {
+        let result = map_source_to_port("app-browser");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("App-Audio Routing noch nicht implementiert"));
+    }
+
+    #[test]
+    fn test_map_bus_to_port_valid() {
+        let result = map_bus_to_port("A1");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "inoX-Bus-A1:input_FL");
+
+        let result = map_bus_to_port("B2");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "inoX-Bus-B2:input_FL");
+    }
+
+    #[test]
+    fn test_map_bus_to_port_invalid() {
+        let result = map_bus_to_port("X1");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Ungültige Bus-ID"));
+    }
+
+    #[test]
+    #[ignore] // Benötigt laufendes PipeWire und existierende Ports
+    fn test_create_audio_link_integration() {
+        // Integration-Test: Nur mit echtem PipeWire und konfigurierten Nodes
+        let result = create_audio_link("mic-1", "A1");
+        // Ergebnis hängt von PipeWire-Setup ab
+        println!("create_audio_link result: {:?}", result);
+    }
+
+    #[test]
+    #[ignore] // Benötigt laufendes PipeWire und existierende Ports
+    fn test_remove_audio_link_integration() {
+        // Integration-Test: Nur mit echtem PipeWire und konfigurierten Nodes
+        let result = remove_audio_link("mic-1", "A1");
+        println!("remove_audio_link result: {:?}", result);
     }
 }

@@ -13,6 +13,7 @@ mod updater;
 
 use audio::bus::{BusManager, OutputBus};
 use audio::mixer::{InputStrip, MixerState};
+use audio::routing::{RoutingManager, RoutingEntry};
 use audio::pipewire as pw;
 use config::database::Database;
 use config::ConfigManager;
@@ -34,6 +35,8 @@ struct AppState {
     buses: Mutex<BusManager>,
     /// FX-Chain (Phase 1: Global, später pro Strip)
     fx_chain: Mutex<FxChain>,
+    /// Routing-Manager (Audio-Routing Matrix)
+    routing: Mutex<RoutingManager>,
 }
 
 // --- Tauri Commands ---
@@ -195,6 +198,29 @@ fn set_fx_bypass(
     fx.set_bypass(module_type, bypass)
 }
 
+// --- Routing Commands (Modul 06) ---
+
+/// Routing-Matrix abrufen
+#[tauri::command]
+fn get_routing_matrix(state: tauri::State<'_, AppState>) -> Result<Vec<RoutingEntry>, String> {
+    let routing = state.routing.lock()
+        .map_err(|e| format!("Routing-Lock-Fehler: {}", e))?;
+    Ok(routing.get_routing_matrix())
+}
+
+/// Routing setzen (Source → Bus Verbindung)
+#[tauri::command]
+fn set_routing(
+    source_id: String,
+    bus_id: String,
+    active: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut routing = state.routing.lock()
+        .map_err(|e| format!("Routing-Lock-Fehler: {}", e))?;
+    routing.set_routing(&source_id, &bus_id, active)
+}
+
 /// Datenbank-Pfad ermitteln (im Tauri App-Data Verzeichnis)
 fn get_db_path(app: &tauri::App) -> Result<String, Box<dyn std::error::Error>> {
     let app_data = app.path().app_data_dir()
@@ -253,12 +279,17 @@ fn main() {
             let fx_chain = FxChain::new();
             info!("FX-Chain initialisiert (Phase 1: HPF + Gate)");
 
-            // 7. App-State registrieren
+            // 7. Routing-Manager erstellen
+            let routing = RoutingManager::new();
+            info!("Routing-Manager initialisiert");
+
+            // 8. App-State registrieren
             app.manage(AppState {
                 config_manager,
                 mixer: Mutex::new(mixer),
                 buses: Mutex::new(buses),
                 fx_chain: Mutex::new(fx_chain),
+                routing: Mutex::new(routing),
             });
 
             info!("Setup abgeschlossen");
@@ -282,6 +313,8 @@ fn main() {
             get_fx_chain,
             set_fx_param,
             set_fx_bypass,
+            get_routing_matrix,
+            set_routing,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Tauri-Anwendung");
