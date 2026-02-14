@@ -10,7 +10,6 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "title": "inoX-MIX v0.3",
     "windows": [
       {
         "title": "inoX-MIX v0.3",
