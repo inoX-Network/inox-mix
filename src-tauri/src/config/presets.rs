@@ -170,3 +170,93 @@ impl PresetManager {
         todo!("PresetManager::list")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::database::Database;
+    use std::sync::Arc;
+
+    fn setup() -> SceneManager {
+        let db = Arc::new(Database::open_in_memory().unwrap());
+        SceneManager::new(db)
+    }
+
+    #[test]
+    fn test_save_and_load_scene() {
+        let manager = setup();
+        let state_json = r#"{"mixer": {"volume": 0.8}}"#;
+
+        // Save scene
+        let scene_id = manager.save_scene("Test Scene", state_json).unwrap();
+        assert!(!scene_id.is_empty());
+        assert!(scene_id.starts_with("scene_"));
+
+        // Load scene
+        let scene = manager.load_scene(&scene_id).unwrap();
+        assert_eq!(scene.name, "Test Scene");
+        assert_eq!(scene.state_json, state_json);
+        assert_eq!(scene.id, scene_id);
+    }
+
+    #[test]
+    fn test_list_scenes() {
+        let manager = setup();
+
+        // Initially empty
+        let scenes = manager.list_scenes().unwrap();
+        assert_eq!(scenes.len(), 0);
+
+        // Save two scenes
+        manager.save_scene("Scene 1", "{}").unwrap();
+        manager.save_scene("Scene 2", "{}").unwrap();
+
+        // List should return 2
+        let scenes = manager.list_scenes().unwrap();
+        assert_eq!(scenes.len(), 2);
+        // Don't test order since timestamps might be identical in fast tests
+        assert!(scenes.iter().any(|s| s.name == "Scene 1"));
+        assert!(scenes.iter().any(|s| s.name == "Scene 2"));
+    }
+
+    #[test]
+    fn test_delete_scene() {
+        let manager = setup();
+
+        let scene_id = manager.save_scene("To Delete", "{}").unwrap();
+        assert_eq!(manager.list_scenes().unwrap().len(), 1);
+
+        // Delete
+        manager.delete_scene(&scene_id).unwrap();
+        assert_eq!(manager.list_scenes().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_delete_nonexistent() {
+        let manager = setup();
+        let result = manager.delete_scene("nonexistent");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_nonexistent() {
+        let manager = setup();
+        let result = manager.load_scene("nonexistent");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_multiple_scenes() {
+        let manager = setup();
+
+        // Save 5 scenes
+        for i in 1..=5 {
+            let name = format!("Scene {}", i);
+            let state = format!(r#"{{"id": {}}}"#, i);
+            manager.save_scene(&name, &state).unwrap();
+        }
+
+        let scenes = manager.list_scenes().unwrap();
+        assert_eq!(scenes.len(), 5);
+    }
+}
