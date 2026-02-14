@@ -114,9 +114,29 @@ impl AudioProcessor for HpfModule {
             return;
         }
 
+        // Koeffizienten lokal kopieren um Borrow Checker zu umgehen
+        let (a0, a1, a2, b1, b2) = (self.a0, self.a1, self.a2, self.b1, self.b2);
+
         for i in 0..buffer_l.len() {
-            buffer_l[i] = self.process_sample(buffer_l[i], &mut self.state_l);
-            buffer_r[i] = self.process_sample(buffer_r[i], &mut self.state_r);
+            // L-Kanal
+            let input_l = buffer_l[i];
+            let output_l = a0 * input_l + a1 * self.state_l.x1 + a2 * self.state_l.x2
+                - b1 * self.state_l.y1 - b2 * self.state_l.y2;
+            self.state_l.x2 = self.state_l.x1;
+            self.state_l.x1 = input_l;
+            self.state_l.y2 = self.state_l.y1;
+            self.state_l.y1 = output_l;
+            buffer_l[i] = output_l;
+
+            // R-Kanal
+            let input_r = buffer_r[i];
+            let output_r = a0 * input_r + a1 * self.state_r.x1 + a2 * self.state_r.x2
+                - b1 * self.state_r.y1 - b2 * self.state_r.y2;
+            self.state_r.x2 = self.state_r.x1;
+            self.state_r.x1 = input_r;
+            self.state_r.y2 = self.state_r.y1;
+            self.state_r.y1 = output_r;
+            buffer_r[i] = output_r;
         }
     }
 

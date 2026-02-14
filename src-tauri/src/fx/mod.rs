@@ -6,17 +6,15 @@
 // Phase 1: HPF + Gate implementiert
 // Phase 2: Weitere 6 Module (TODO)
 
-// Sub-Module (Phase 1: nur HPF und Gate implementiert)
+// Sub-Module (alle 8 Module)
 pub mod hpf;
 pub mod gate;
-
-// Phase 2 Module (noch nicht implementiert)
-// pub mod denoise;
-// pub mod deesser;
-// pub mod eq;
-// pub mod compressor;
-// pub mod limiter;
-// pub mod autogain;
+pub mod denoise;
+pub mod deesser;
+pub mod eq;
+pub mod compressor;
+pub mod limiter;
+pub mod autogain;
 
 use serde::{Deserialize, Serialize};
 
@@ -112,55 +110,43 @@ pub struct FxModuleInfo {
 
 /// FX-Chain (8 Module in fester Reihenfolge)
 pub struct FxChain {
-    // Phase 1: Nur HPF und Gate implementiert
     hpf: hpf::HpfModule,
+    denoise: denoise::DenoiseModule,
     gate: gate::GateModule,
-
-    // Phase 2: Weitere Module (noch nicht implementiert)
-    // denoise: denoise::DenoiseModule,
-    // deesser: deesser::DeEsserModule,
-    // eq: eq::EqModule,
-    // compressor: compressor::CompressorModule,
-    // limiter: limiter::LimiterModule,
-    // autogain: autogain::AutoGainModule,
+    deesser: deesser::DeEsserModule,
+    eq: eq::EqModule,
+    compressor: compressor::CompressorModule,
+    limiter: limiter::LimiterModule,
+    autogain: autogain::AutoGainModule,
 }
 
 impl FxChain {
     /// Neue FX-Chain mit Default-Settings
     pub fn new() -> Self {
-        log::info!("FxChain::new() — Erstelle 8-stufige Signal-Chain (Phase 1: HPF + Gate)");
+        log::info!("FxChain::new() — Erstelle 8-stufige Signal-Chain");
         Self {
             hpf: hpf::HpfModule::new(),
+            denoise: denoise::DenoiseModule::new(SAMPLE_RATE),
             gate: gate::GateModule::new(),
+            deesser: deesser::DeEsserModule::new(SAMPLE_RATE),
+            eq: eq::EqModule::new(SAMPLE_RATE),
+            compressor: compressor::CompressorModule::new(SAMPLE_RATE),
+            limiter: limiter::LimiterModule::new(SAMPLE_RATE),
+            autogain: autogain::AutoGainModule::new(SAMPLE_RATE),
         }
     }
 
     /// Audio durch komplette Chain verarbeiten
     pub fn process(&mut self, buffer_l: &mut [f32], buffer_r: &mut [f32]) {
         // Chain-Reihenfolge (SPEC: strikt einhalten!)
-        // 1. HPF
         self.hpf.process(buffer_l, buffer_r);
-
-        // 2. AI Denoise (Phase 2)
-        // self.denoise.process(buffer_l, buffer_r);
-
-        // 3. Gate
+        self.denoise.process(buffer_l, buffer_r);
         self.gate.process(buffer_l, buffer_r);
-
-        // 4. De-Esser (Phase 2)
-        // self.deesser.process(buffer_l, buffer_r);
-
-        // 5. EQ (Phase 2)
-        // self.eq.process(buffer_l, buffer_r);
-
-        // 6. Compressor (Phase 2)
-        // self.compressor.process(buffer_l, buffer_r);
-
-        // 7. Limiter (Phase 2)
-        // self.limiter.process(buffer_l, buffer_r);
-
-        // 8. Auto-Gain (Phase 2)
-        // self.autogain.process(buffer_l, buffer_r);
+        self.deesser.process(buffer_l, buffer_r);
+        self.eq.process(buffer_l, buffer_r);
+        self.compressor.process(buffer_l, buffer_r);
+        self.limiter.process(buffer_l, buffer_r);
+        self.autogain.process(buffer_l, buffer_r);
     }
 
     /// Modul-Info für Frontend
@@ -170,6 +156,11 @@ impl FxChain {
                 module_type,
                 enabled: !self.hpf.is_bypassed(),
                 params: vec![("freq".to_string(), self.hpf.get_freq())],
+            }),
+            FxModuleType::Denoise => Some(FxModuleInfo {
+                module_type,
+                enabled: !self.denoise.is_bypassed(),
+                params: vec![],
             }),
             FxModuleType::Gate => Some(FxModuleInfo {
                 module_type,
@@ -181,8 +172,31 @@ impl FxChain {
                     ("release".to_string(), self.gate.get_release()),
                 ],
             }),
-            // Phase 2: Weitere Module
-            _ => None,
+            FxModuleType::DeEsser => Some(FxModuleInfo {
+                module_type,
+                enabled: !self.deesser.is_bypassed(),
+                params: vec![],
+            }),
+            FxModuleType::Eq => Some(FxModuleInfo {
+                module_type,
+                enabled: !self.eq.is_bypassed(),
+                params: vec![],
+            }),
+            FxModuleType::Compressor => Some(FxModuleInfo {
+                module_type,
+                enabled: !self.compressor.is_bypassed(),
+                params: vec![],
+            }),
+            FxModuleType::Limiter => Some(FxModuleInfo {
+                module_type,
+                enabled: !self.limiter.is_bypassed(),
+                params: vec![],
+            }),
+            FxModuleType::AutoGain => Some(FxModuleInfo {
+                module_type,
+                enabled: !self.autogain.is_bypassed(),
+                params: vec![],
+            }),
         }
     }
 
@@ -205,18 +219,53 @@ impl FxChain {
                     Err(format!("Unbekannter Parameter: {}", param_name))
                 }
             }
+            FxModuleType::Denoise => {
+                match param_name {
+                    "threshold" => self.denoise.set_threshold(value),
+                    _ => Err(format!("Unbekannter Parameter: {}", param_name)),
+                }
+            }
             FxModuleType::Gate => {
                 match param_name {
-                    "threshold" => self.gate.set_threshold(value),
-                    "attack" => self.gate.set_attack(value),
-                    "hold" => self.gate.set_hold(value),
-                    "release" => self.gate.set_release(value),
-                    _ => return Err(format!("Unbekannter Parameter: {}", param_name)),
+                    "threshold" => { self.gate.set_threshold(value); Ok(()) },
+                    "attack" => { self.gate.set_attack(value); Ok(()) },
+                    "hold" => { self.gate.set_hold(value); Ok(()) },
+                    "release" => { self.gate.set_release(value); Ok(()) },
+                    _ => Err(format!("Unbekannter Parameter: {}", param_name)),
                 }
-                Ok(())
             }
-            // Phase 2: Weitere Module
-            _ => Err(format!("Modul {:?} noch nicht implementiert", module_type)),
+            FxModuleType::DeEsser => {
+                match param_name {
+                    "threshold" => self.deesser.set_threshold(value),
+                    _ => Err(format!("Unbekannter Parameter: {}", param_name)),
+                }
+            }
+            FxModuleType::Eq => {
+                // EQ hat set_low(), set_mid(), set_high() - keine einzelnen Parameter
+                Err(format!("EQ-Parameter müssen über set_low/mid/high gesetzt werden"))
+            }
+            FxModuleType::Compressor => {
+                match param_name {
+                    "threshold" => self.compressor.set_threshold(value),
+                    _ => Err(format!("Unbekannter Parameter: {}", param_name)),
+                }
+            }
+            FxModuleType::Limiter => {
+                match param_name {
+                    "ceiling" => self.limiter.set_ceiling(value),
+                    "release" => self.limiter.set_release(value),
+                    _ => Err(format!("Unbekannter Parameter: {}", param_name)),
+                }
+            }
+            FxModuleType::AutoGain => {
+                match param_name {
+                    "target_level" => self.autogain.set_target_level(value),
+                    "window" => self.autogain.set_window(value),
+                    "attack" => self.autogain.set_attack(value),
+                    "release" => self.autogain.set_release(value),
+                    _ => Err(format!("Unbekannter Parameter: {}", param_name)),
+                }
+            }
         }
     }
 
@@ -227,20 +276,47 @@ impl FxChain {
                 self.hpf.set_bypass(bypass);
                 Ok(())
             }
+            FxModuleType::Denoise => {
+                self.denoise.set_bypass(bypass);
+                Ok(())
+            }
             FxModuleType::Gate => {
                 self.gate.set_bypass(bypass);
                 Ok(())
             }
-            // Phase 2: Weitere Module
-            _ => Err(format!("Modul {:?} noch nicht implementiert", module_type)),
+            FxModuleType::DeEsser => {
+                self.deesser.set_bypass(bypass);
+                Ok(())
+            }
+            FxModuleType::Eq => {
+                self.eq.set_bypass(bypass);
+                Ok(())
+            }
+            FxModuleType::Compressor => {
+                self.compressor.set_bypass(bypass);
+                Ok(())
+            }
+            FxModuleType::Limiter => {
+                self.limiter.set_bypass(bypass);
+                Ok(())
+            }
+            FxModuleType::AutoGain => {
+                self.autogain.set_bypass(bypass);
+                Ok(())
+            }
         }
     }
 
     /// Chain zurücksetzen (alle Module)
     pub fn reset(&mut self) {
         self.hpf.reset();
+        self.denoise.reset();
         self.gate.reset();
-        // Phase 2: Weitere Module
+        self.deesser.reset();
+        self.eq.reset();
+        self.compressor.reset();
+        self.limiter.reset();
+        self.autogain.reset();
     }
 }
 
@@ -289,9 +365,15 @@ mod tests {
     #[test]
     fn test_fx_chain_process_passthrough() {
         let mut chain = FxChain::new();
-        // Alle Module bypassen
+        // Alle 8 Module bypassen
         chain.set_bypass(FxModuleType::Hpf, true).unwrap();
+        chain.set_bypass(FxModuleType::Denoise, true).unwrap();
         chain.set_bypass(FxModuleType::Gate, true).unwrap();
+        chain.set_bypass(FxModuleType::DeEsser, true).unwrap();
+        chain.set_bypass(FxModuleType::Eq, true).unwrap();
+        chain.set_bypass(FxModuleType::Compressor, true).unwrap();
+        chain.set_bypass(FxModuleType::Limiter, true).unwrap();
+        chain.set_bypass(FxModuleType::AutoGain, true).unwrap();
 
         let mut buffer_l = vec![0.5; 256];
         let mut buffer_r = vec![0.5; 256];
@@ -308,9 +390,11 @@ mod tests {
     fn test_get_all_modules() {
         let chain = FxChain::new();
         let modules = chain.get_all_modules();
-        // Phase 1: Nur HPF und Gate
-        assert_eq!(modules.len(), 2);
+        // Alle 8 Module
+        assert_eq!(modules.len(), 8);
         assert_eq!(modules[0].module_type, FxModuleType::Hpf);
-        assert_eq!(modules[1].module_type, FxModuleType::Gate);
+        assert_eq!(modules[1].module_type, FxModuleType::Denoise);
+        assert_eq!(modules[2].module_type, FxModuleType::Gate);
+        assert_eq!(modules[7].module_type, FxModuleType::AutoGain);
     }
 }
