@@ -20,7 +20,7 @@ export default function BusStrip({ bus }: BusStripProps) {
   const labelColor = isABus ? 'text-inox-cyan' : 'text-inox-orange';
 
   return (
-    <div className="min-w-[120px] bg-inox-strip border border-[rgba(255,255,255,0.05)] rounded-[5px] flex flex-col gap-1 p-2">
+    <div className="min-w-[120px] bg-inox-strip border border-inox-subtle/20 rounded-[5px] flex flex-col gap-1 p-2">
       {/* Top Accent */}
       <div className={`h-[2px] ${accentColor} rounded-full -mx-1`} />
 

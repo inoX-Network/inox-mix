@@ -31,7 +31,7 @@ export default function BusSection() {
   }
 
   return (
-    <div className="flex gap-2 p-4 pt-2 border-t border-inox-subtle/20">
+    <div className="flex gap-1 p-4 pt-2 border-t border-inox-subtle/20">
       {/* Label */}
       <div className="flex items-center">
         <span className="text-[6px] font-bold text-inox-muted tracking-wider uppercase rotate-180" style={{ writingMode: 'vertical-lr' }}>
