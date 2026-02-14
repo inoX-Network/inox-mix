@@ -13,6 +13,7 @@ mod updater;
 
 use recording::{RecordingEngine, RecordingFormat, RecordingInfo, ActiveRecording};
 use config::presets::{SceneManager, Scene, SceneInfo};
+use streamer::soundboard::{SoundboardManager, SoundEntry};
 
 use audio::bus::{BusManager, OutputBus};
 use audio::mixer::{InputStrip, MixerState};
@@ -47,6 +48,8 @@ struct AppState {
     recording: Mutex<RecordingEngine>,
     /// Scene-Manager für Szenen-Verwaltung
     scenes: SceneManager,
+    /// Soundboard-Manager für Sound-Playback
+    soundboard: Mutex<SoundboardManager>,
 }
 
 // --- Tauri Commands ---
@@ -348,6 +351,75 @@ fn get_scenes(state: tauri::State<'_, AppState>) -> Result<Vec<SceneInfo>, Strin
     state.scenes.list_scenes()
 }
 
+// --- Soundboard Commands (Modul 13) ---
+
+/// Sound abspielen
+#[tauri::command]
+fn play_sound(sound_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let soundboard = state.soundboard.lock()
+        .map_err(|e| format!("Soundboard-Lock-Fehler: {}", e))?;
+    soundboard.play_sound(&sound_id)
+}
+
+/// Sound stoppen
+#[tauri::command]
+fn stop_sound(sound_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let soundboard = state.soundboard.lock()
+        .map_err(|e| format!("Soundboard-Lock-Fehler: {}", e))?;
+    soundboard.stop_sound(&sound_id)
+}
+
+/// Sound hinzufügen
+#[tauri::command]
+fn add_sound(
+    name: String,
+    file_path: String,
+    hotkey: Option<String>,
+    bus_id: Option<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
+    let soundboard = state.soundboard.lock()
+        .map_err(|e| format!("Soundboard-Lock-Fehler: {}", e))?;
+    soundboard.add_sound(&name, &file_path, hotkey, bus_id)
+}
+
+/// Sound entfernen
+#[tauri::command]
+fn remove_sound(sound_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let soundboard = state.soundboard.lock()
+        .map_err(|e| format!("Soundboard-Lock-Fehler: {}", e))?;
+    soundboard.remove_sound(&sound_id)
+}
+
+/// Alle Sounds auflisten
+#[tauri::command]
+fn get_sounds(state: tauri::State<'_, AppState>) -> Result<Vec<SoundEntry>, String> {
+    let soundboard = state.soundboard.lock()
+        .map_err(|e| format!("Soundboard-Lock-Fehler: {}", e))?;
+    soundboard.get_sounds()
+}
+
+/// Sound-Volume setzen
+#[tauri::command]
+fn set_sound_volume(
+    sound_id: String,
+    volume_db: f32,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let soundboard = state.soundboard.lock()
+        .map_err(|e| format!("Soundboard-Lock-Fehler: {}", e))?;
+    soundboard.set_sound_volume(&sound_id, volume_db)
+}
+
+/// Soundboard Master-Volume setzen
+#[tauri::command]
+fn set_soundboard_volume(volume_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut soundboard = state.soundboard.lock()
+        .map_err(|e| format!("Soundboard-Lock-Fehler: {}", e))?;
+    soundboard.set_master_volume(volume_db);
+    Ok(())
+}
+
 /// Datenbank-Pfad ermitteln (im Tauri App-Data Verzeichnis)
 fn get_db_path(app: &tauri::App) -> Result<String, Box<dyn std::error::Error>> {
     let app_data = app.path().app_data_dir()
@@ -422,7 +494,11 @@ fn main() {
             let scenes = SceneManager::new(db.clone());
             info!("Scene-Manager initialisiert");
 
-            // 11. App-State registrieren
+            // 11. Soundboard-Manager erstellen
+            let soundboard = SoundboardManager::new(db.clone());
+            info!("Soundboard-Manager initialisiert");
+
+            // 12. App-State registrieren
             app.manage(AppState {
                 config_manager,
                 mixer: Mutex::new(mixer),
@@ -432,6 +508,7 @@ fn main() {
                 master: Mutex::new(master),
                 recording: Mutex::new(recording),
                 scenes,
+                soundboard: Mutex::new(soundboard),
             });
 
             info!("Setup abgeschlossen");
@@ -470,6 +547,13 @@ fn main() {
             load_scene,
             delete_scene,
             get_scenes,
+            play_sound,
+            stop_sound,
+            add_sound,
+            remove_sound,
+            get_sounds,
+            set_sound_volume,
+            set_soundboard_volume,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Tauri-Anwendung");

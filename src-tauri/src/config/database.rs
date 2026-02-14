@@ -84,6 +84,16 @@ impl Database {
                 created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
             );
 
+            CREATE TABLE IF NOT EXISTS sounds (
+                id         TEXT PRIMARY KEY NOT NULL,
+                name       TEXT NOT NULL,
+                file_path  TEXT NOT NULL,
+                hotkey     TEXT,
+                bus_id     TEXT NOT NULL DEFAULT 'B1',
+                volume_db  REAL NOT NULL DEFAULT 0.0,
+                created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+            );
+
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY NOT NULL
             );"
