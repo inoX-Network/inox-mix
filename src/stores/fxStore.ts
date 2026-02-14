@@ -1,29 +1,75 @@
-// Store: fxStore — Zustand Store für FX-Chain State
+// Store: fxStore — Zustand Store für FX-Chain
+import { create } from 'zustand';
+import { invoke } from '@tauri-apps/api/core';
+import type { FxModuleInfo, FxModuleType } from '../types/fx';
 
-// TODO: import { create } from 'zustand'
-
-/** FX-Chain State Interface */
 interface FxState {
-  /** FX-Chains pro Kanal */
-  chains: Record<string, FxChainState>;
-  /** Aktuell ausgewählter Kanal für FX-Panel */
-  selectedChannel: string | null;
+  /** FX-Module (Phase 1: Global, später pro Strip) */
+  modules: FxModuleInfo[];
+  /** Lade-Status */
+  loading: boolean;
+  /** Fehler-Message */
+  error: string | null;
+
+  // Actions
+  /** Module vom Backend laden */
+  loadFxChain: () => Promise<void>;
+  /** Parameter setzen */
+  setParam: (moduleType: FxModuleType, paramName: string, value: number) => Promise<void>;
+  /** Bypass setzen */
+  setBypass: (moduleType: FxModuleType, bypass: boolean) => Promise<void>;
 }
 
-/** FX-Chain eines einzelnen Kanals */
-interface FxChainState {
-  channelId: string;
-  modules: FxModuleState[];
-}
+export const useFxStore = create<FxState>((set) => ({
+  modules: [],
+  loading: false,
+  error: null,
 
-/** Einzelnes FX-Modul */
-interface FxModuleState {
-  type: string;
-  enabled: boolean;
-  params: Record<string, number>;
-}
+  loadFxChain: async () => {
+    set({ loading: true, error: null });
+    try {
+      const modules = await invoke<FxModuleInfo[]>('get_fx_chain');
+      set({ modules, loading: false });
+    } catch (err) {
+      set({ error: String(err), loading: false });
+    }
+  },
 
-// TODO: Zustand Store erstellen
-// export const useFxStore = create<FxState>((set) => ({ ... }))
+  setParam: async (moduleType: FxModuleType, paramName: string, value: number) => {
+    try {
+      await invoke('set_fx_param', { moduleType, paramName, value });
+      // Optimistic update
+      set((state) => ({
+        modules: state.modules.map((m) =>
+          m.module_type === moduleType
+            ? {
+                ...m,
+                params: m.params.map((p) =>
+                  p[0] === paramName ? [p[0], value] : p
+                ) as [string, number][],
+              }
+            : m
+        ),
+      }));
+    } catch (err) {
+      set({ error: String(err) });
+    }
+  },
 
-export type { FxState, FxChainState, FxModuleState };
+  setBypass: async (moduleType: FxModuleType, bypass: boolean) => {
+    try {
+      await invoke('set_fx_bypass', { moduleType, bypass });
+      // Optimistic update
+      set((state) => ({
+        modules: state.modules.map((m) =>
+          m.module_type === moduleType
+            ? { ...m, enabled: !bypass }
+            : m
+        ),
+      }));
+    } catch (err) {
+      set({ error: String(err) });
+    }
+  },
+}));
+

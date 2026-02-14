@@ -1,7 +1,8 @@
 // Component: Mixer — Mixer-Hauptkomponente mit allen Input-Strips
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Strip from './Strip';
 import BusSection from '../bus/BusSection';
+import FxPanel from '../fx/FxPanel';
 import { useMixerStore } from '../../stores/mixerStore';
 
 /**
@@ -10,6 +11,7 @@ import { useMixerStore } from '../../stores/mixerStore';
  */
 export default function Mixer() {
   const { strips, loading, error, loadStrips, addVirtualStrip } = useMixerStore();
+  const [showFxPanel, setShowFxPanel] = useState(true); // Phase 1: Immer sichtbar für Testing
 
   useEffect(() => {
     loadStrips();
@@ -56,6 +58,11 @@ export default function Mixer() {
 
       {/* Output Busse Section */}
       <BusSection />
+
+      {/* FX-Panel (Phase 1: Immer sichtbar) */}
+      {showFxPanel && (
+        <FxPanel onClose={() => setShowFxPanel(false)} />
+      )}
     </div>
   );
 }
