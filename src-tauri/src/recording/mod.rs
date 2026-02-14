@@ -204,3 +204,88 @@ impl Default for RecordingEngine {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_recording_engine_new() {
+        let engine = RecordingEngine::new();
+        assert_eq!(engine.active.len(), 0);
+    }
+
+    #[test]
+    fn test_start_stop_recording() {
+        let mut engine = RecordingEngine::new();
+        let source_id = "test_bus";
+
+        // Start recording
+        let result = engine.start(source_id, RecordingFormat::Wav);
+        assert!(result.is_ok());
+        assert!(engine.is_recording(source_id));
+        assert_eq!(engine.get_active_recordings().len(), 1);
+
+        // Write some dummy samples
+        let samples = vec![0.5_f32; 48000]; // 0.5 Sekunden @ 48kHz Stereo
+        engine.write_samples(source_id, &samples).unwrap();
+
+        // Stop recording
+        let info = engine.stop(source_id).unwrap();
+        assert!(!engine.is_recording(source_id));
+        assert_eq!(engine.get_active_recordings().len(), 0);
+
+        // Check file exists
+        let path = PathBuf::from(&info.path);
+        assert!(path.exists());
+
+        // Cleanup
+        fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn test_multiple_recordings() {
+        let mut engine = RecordingEngine::new();
+
+        // Start two recordings
+        engine.start("bus1", RecordingFormat::Wav).unwrap();
+        engine.start("bus2", RecordingFormat::Wav).unwrap();
+
+        assert_eq!(engine.get_active_recordings().len(), 2);
+        assert!(engine.is_recording("bus1"));
+        assert!(engine.is_recording("bus2"));
+
+        // Stop one
+        let info1 = engine.stop("bus1").unwrap();
+        assert_eq!(engine.get_active_recordings().len(), 1);
+
+        // Stop other
+        let info2 = engine.stop("bus2").unwrap();
+        assert_eq!(engine.get_active_recordings().len(), 0);
+
+        // Cleanup
+        fs::remove_file(&info1.path).ok();
+        fs::remove_file(&info2.path).ok();
+    }
+
+    #[test]
+    fn test_cannot_start_duplicate() {
+        let mut engine = RecordingEngine::new();
+
+        engine.start("bus1", RecordingFormat::Wav).unwrap();
+        let result = engine.start("bus1", RecordingFormat::Wav);
+        assert!(result.is_err());
+
+        let info = engine.stop("bus1").unwrap();
+        fs::remove_file(&info.path).ok();
+    }
+
+    #[test]
+    fn test_flac_not_implemented() {
+        let mut engine = RecordingEngine::new();
+        let result = engine.start("test", RecordingFormat::Flac);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("nicht implementiert"));
+    }
+}
