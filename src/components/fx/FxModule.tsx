@@ -41,7 +41,7 @@ export default function FxModule({ module }: FxModuleProps) {
               ? `${accentClass} ${colorClass}`
               : 'bg-inox-subtle text-inox-muted'
           }`}
-          onClick={() => setBypass(module.module_type, module.enabled)}
+          onClick={() => setBypass(module.module_type, !module.enabled)}
           aria-label="Toggle"
           aria-pressed={module.enabled}
         >
@@ -57,7 +57,7 @@ export default function FxModule({ module }: FxModuleProps) {
           return (
             <div key={paramMeta.name} className="flex flex-col gap-0.5">
               {/* Label */}
-              <span className="text-[6px] text-inox-muted uppercase tracking-wide">
+              <span className={`text-[7px] font-medium uppercase tracking-wide ${colorClass}`} style={{ opacity: 0.6 }}>
                 {paramMeta.label}
               </span>
               {/* Slider */}
