@@ -1,15 +1,90 @@
-// Komponente: Header — obere Leiste mit Logo, Status und Aktionen
+// Komponente: Header — obere Leiste mit Logo, PipeWire-Status und System-Info
 
-/** Header-Leiste mit App-Name, CPU/Latenz-Anzeige und globalen Aktionen */
+import { useAppStore } from '../../stores/appStore';
+
+/** Header-Leiste mit App-Name, PipeWire-Status und Audio-Parametern */
 interface HeaderProps {}
 
 function Header(_props: HeaderProps) {
-  // TODO: Logo, Versionsnummer
-  // TODO: CPU-Auslastung, Latenz, Sample-Rate Anzeige
-  // TODO: Preset-Auswahl, Settings-Button
+  const systemInfo = useAppStore((s) => s.systemInfo);
+  const pipewireWarning = useAppStore((s) => s.pipewireWarning);
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+
+  /** PipeWire-Status: verbunden oder Warnung */
+  const pwConnected = systemInfo?.pipewire_running && !pipewireWarning;
+
   return (
-    <header className="h-8 bg-inox-panel border-b border-[rgba(255,255,255,0.05)] flex items-center px-3">
-      {/* TODO: Header-Inhalt */}
+    <header className="h-8 bg-inox-panel border-b border-[rgba(255,255,255,0.05)] flex items-center px-3 justify-between shrink-0">
+      {/* Links: Logo + Version */}
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] font-extrabold tracking-[2px] text-inox-cyan uppercase">
+          inoX-MIX
+        </span>
+        <span className="text-[9px] font-medium text-[#666] tracking-wider">
+          v{systemInfo?.app_version ?? '0.3'}
+        </span>
+      </div>
+
+      {/* Mitte: PipeWire-Status + Audio-Parameter */}
+      <div className="flex items-center gap-4">
+        {/* PipeWire-Status-Dot */}
+        <div className="flex items-center gap-1.5">
+          <div
+            className={`w-[6px] h-[6px] rounded-full ${
+              pwConnected
+                ? 'bg-inox-green shadow-[0_0_4px_rgba(76,175,80,0.5)]'
+                : 'bg-inox-red shadow-[0_0_4px_rgba(255,23,68,0.5)]'
+            }`}
+          />
+          <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-[#888]">
+            {pwConnected ? 'PW OK' : 'PW OFFLINE'}
+          </span>
+        </div>
+
+        {/* Sample-Rate */}
+        {systemInfo && (
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center">
+              <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-[#555]">
+                RATE
+              </span>
+              <span className="text-[8px] font-semibold text-[#999]">
+                {(systemInfo.sample_rate / 1000).toFixed(1)}k
+              </span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-[#555]">
+                BUFFER
+              </span>
+              <span className="text-[8px] font-semibold text-[#999]">
+                {systemInfo.buffer_size}
+              </span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-[#555]">
+                LATENZ
+              </span>
+              <span className="text-[8px] font-semibold text-[#999]">
+                {((systemInfo.buffer_size / systemInfo.sample_rate) * 1000).toFixed(1)}ms
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Rechts: Streamer-Sidebar Toggle */}
+      <button
+        id="btn-header-001"
+        onClick={toggleSidebar}
+        className={`text-[6px] font-bold uppercase tracking-[1px] px-2 py-0.5 rounded border transition-colors ${
+          sidebarOpen
+            ? 'border-inox-orange text-inox-orange bg-inox-orange/10'
+            : 'border-[rgba(255,255,255,0.1)] text-[#666] hover:text-[#999] hover:border-[rgba(255,255,255,0.2)]'
+        }`}
+      >
+        STREAM
+      </button>
     </header>
   );
 }

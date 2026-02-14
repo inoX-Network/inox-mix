@@ -10,20 +10,22 @@ export interface CommandResponse<T> {
   error?: string;
 }
 
-/** System-Informationen */
+/** System-Informationen (Rückgabe von get_system_info Tauri Command) */
 export interface SystemInfo {
-  /** App-Version */
-  version: string;
-  /** OS-Name */
-  os: string;
-  /** CPU-Kerne */
-  cpuCores: number;
-  /** RAM in MB */
-  ramMb: number;
+  /** App-Version (aus Cargo.toml) */
+  app_version: string;
   /** PipeWire-Version */
-  pipewireVersion: string;
+  pipewire_version: string;
   /** PipeWire läuft */
-  pipewireRunning: boolean;
+  pipewire_running: boolean;
+  /** Aktuelle Sample-Rate in Hz */
+  sample_rate: number;
+  /** Aktuelle Buffer-Größe in Samples */
+  buffer_size: number;
+  /** Betriebssystem */
+  os: string;
+  /** CPU-Architektur */
+  arch: string;
 }
 
 /** WebSocket-Nachricht */

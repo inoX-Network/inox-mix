@@ -1,7 +1,7 @@
-# Prüf-Checkliste: Modul 01 — Core (BACKEND-ENGINEER)
+# Prüf-Checkliste: Modul 01 — Core (BACKEND + FRONTEND)
 
 ## Datum: 2026-02-14
-## Phase: BACKEND-ENGINEER (Schritt 2 von 4)
+## Phase: FRONTEND-ENGINEER (Schritt 3 von 4)
 
 ---
 
@@ -59,19 +59,20 @@
 | Status | Anforderung | Datei:Zeile | Anmerkung |
 |--------|------------|-------------|-----------|
 | ✅ | Fenstertitel | `tauri.conf.json` | `"title": "inoX-MIX v0.3"` |
-| ⏳ | Logo | — | Frontend-Phase (FRONTEND-ENGINEER) |
+| ✅ | Logo-Text im Header | `components/layout/Header.tsx:21` | "inoX-MIX" in Cyan, extrabold |
 
 ### 7. Font: Oxanium über Google Fonts
 | Status | Anforderung | Datei:Zeile | Anmerkung |
 |--------|------------|-------------|-----------|
-| ⏳ | Oxanium Import | — | Frontend-Phase (globals.css) |
-| ✅ | Tailwind-Config vorbereitet | `tailwind.config.ts` | `fontFamily: { oxanium: ['Oxanium'] }` |
+| ✅ | Oxanium Import | `styles/globals.css:2` | `@import url('...Oxanium...')` |
+| ✅ | Tailwind-Config | `tailwind.config.ts:19` | `fontFamily: { oxanium: ['Oxanium'] }` |
+| ✅ | Body font-family | `styles/globals.css:27` | `font-family: 'Oxanium', monospace` |
 
 ### 8. Farbschema: Cyan + Orange
 | Status | Anforderung | Datei:Zeile | Anmerkung |
 |--------|------------|-------------|-----------|
-| ⏳ | CSS-Variablen | — | Frontend-Phase (globals.css) |
-| ✅ | Tailwind-Config vorbereitet | `tailwind.config.ts` | Alle Farben definiert |
+| ✅ | CSS Custom Properties | `styles/globals.css:9-20` | Alle Farben als CSS-Variablen |
+| ✅ | Tailwind-Config | `tailwind.config.ts:8-17` | Alle Farben als Tailwind-Klassen |
 
 ---
 
@@ -85,13 +86,17 @@
 | ✅ | `src-tauri/src/config/mod.rs` | Config + Database Init | ConfigManager + AppConfig |
 | ✅ | `src-tauri/src/config/database.rs` | SQLite-Datenbank | Database struct, CRUD, Schema |
 
-## React-Dateien (lt. SPEC — Frontend-Phase)
+## React-Dateien (lt. SPEC)
 
 | Status | Datei | Anforderung | Anmerkung |
 |--------|-------|-------------|-----------|
-| ⏳ | `src/App.tsx` | Root mit Layout | Skeleton vorhanden, FRONTEND-ENGINEER |
-| ⏳ | `src/main.tsx` | Entry | Skeleton vorhanden, FRONTEND-ENGINEER |
-| ⏳ | `src/styles/globals.css` | Tailwind + Oxanium | FRONTEND-ENGINEER |
+| ✅ | `src/App.tsx` | Root mit Layout (Header, TabBar, Content, Sidebar) | Vollständig implementiert |
+| ✅ | `src/main.tsx` | Entry | React StrictMode + globals.css Import |
+| ✅ | `src/styles/globals.css` | Tailwind + Oxanium Import | CSS-Variablen, Scrollbar, body |
+| ✅ | `src/stores/appStore.ts` | App-Level State (Zustand) | Tabs, Sidebar, SystemInfo, PW-Warning |
+| ✅ | `src/components/layout/Header.tsx` | Header-Leiste | Logo, PW-Status, Audio-Parameter, Sidebar-Toggle |
+| ✅ | `src/components/layout/TabBar.tsx` | Tab-Navigation | 6 Tabs, Cyan-Underline bei aktivem Tab |
+| ✅ | `src/types/api.ts` | SystemInfo Type | Angepasst an Backend-Rückgabe |
 
 ---
 
@@ -112,24 +117,26 @@
 |--------|-----------------|---------------|--------|
 | ✅ | PipeWire Verbindung aufbauen + trennen | `audio/pipewire.rs:303-335` | 5 Tests |
 | ✅ | Config lesen/schreiben SQLite | `config/database.rs:173-256` + `config/mod.rs:121-202` | 15 Tests |
-| ⏳ | Fenster öffnet sich mit korrektem Titel | — | Frontend-Phase |
-| **✅** | **Gesamt: 19/19 Tests bestanden** | `cargo test` | **Alle grün** |
+| ✅ | Fenster öffnet sich mit korrektem Titel | `tauri.conf.json` + `Header.tsx:21` | Titel in conf + Header-Logo |
+| **✅** | **Gesamt: 19/19 Rust-Tests bestanden** | `cargo test` | **Alle grün** |
+| ✅ | TypeScript kompiliert fehlerfrei | `tsc --noEmit` | Keine Fehler |
+| ✅ | Vite Build erfolgreich | `vite build` | 37 Module, 395ms |
 
 ---
 
 ## Zusammenfassung
 
-| Kategorie | Gesamt | ✅ Erledigt | ⏳ Spätere Phase |
-|-----------|--------|------------|-----------------|
-| Backend-Anforderungen | 22 | 22 | 0 |
-| Frontend-Anforderungen | 5 | 0 | 5 |
-| Tauri Commands | 4 | 4 | 0 |
-| Tests | 4 | 3 | 1 |
-| **Gesamt** | **35** | **29** | **6** |
+| Kategorie | Gesamt | ✅ Erledigt |
+|-----------|--------|------------|
+| Backend-Anforderungen | 22 | 22 |
+| Frontend-Anforderungen | 10 | 10 |
+| Tauri Commands | 4 | 4 |
+| Tests / Build | 6 | 6 |
+| **Gesamt** | **42** | **42** |
 
-**Backend-Phase: 100% abgeschlossen** ✅
+**Backend + Frontend Phase: 100% abgeschlossen** ✅
 
-Die 6 offenen Punkte (⏳) gehören zur **FRONTEND-ENGINEER**-Phase (Schritt 3).
+Nächster Schritt: **QUALITÄTSPRÜFER** (Schritt 4 — Audit)
 
 ---
 
@@ -145,3 +152,19 @@ Die 6 offenen Punkte (⏳) gehören zur **FRONTEND-ENGINEER**-Phase (Schritt 3).
 | ✅ | Graceful Shutdown | `Drop` für PipeWireSession, `disconnect()` |
 | ✅ | Fehlerbehandlung | Alle Funktionen geben `Result` zurück |
 | ✅ | Serde Serialize/Deserialize | AudioDevice, PipeWireStatus, PipeWireInfo, AppConfig |
+
+### Frontend Code-Qualität
+
+| Kriterium | Status | Anmerkung |
+|-----------|--------|-----------|
+| ✅ | TypeScript strict mode | `tsconfig.json: "strict": true` |
+| ✅ | Keine `any`-Types | Alle Interfaces strikt typisiert |
+| ✅ | Funktionale Komponenten mit Hooks | useEffect, useAppStore |
+| ✅ | Zustand für State Management | `appStore.ts` mit `create<AppState>()` |
+| ✅ | Tailwind CSS + Custom Properties | Alle Farben aus DESIGN-SYSTEM.md |
+| ✅ | Keine inline styles | Alles über Tailwind-Klassen |
+| ✅ | JSDoc auf allen Komponenten | Props-Interfaces + Kommentare |
+| ✅ | Tauri IPC über `invoke()` | `App.tsx:21` für `get_system_info` |
+| ✅ | Tauri Events über `listen()` | `App.tsx:26` für `pipewire-warning` |
+| ✅ | Deutsche Kommentare | Alle Dateien mit deutschen Kommentaren |
+| ✅ | UI-Element-IDs | `btn-header-001`, `btn-tab-*`, `btn-pw-warn-dismiss` |
