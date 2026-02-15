@@ -127,3 +127,71 @@ impl Default for VoiceFxManager {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_voice_fx_manager_new() {
+        let mgr = VoiceFxManager::new();
+        let state = mgr.get_state();
+        assert_eq!(state.preset, VoiceFxPreset::None);
+        assert!(!state.enabled);
+        assert_eq!(state.dry_wet, 1.0);
+    }
+
+    #[test]
+    fn test_set_preset() {
+        let mut mgr = VoiceFxManager::new();
+        mgr.set_preset(VoiceFxPreset::Robot);
+        assert_eq!(mgr.get_state().preset, VoiceFxPreset::Robot);
+    }
+
+    #[test]
+    fn test_set_enabled() {
+        let mut mgr = VoiceFxManager::new();
+        mgr.set_enabled(true);
+        assert!(mgr.get_state().enabled);
+        mgr.set_enabled(false);
+        assert!(!mgr.get_state().enabled);
+    }
+
+    #[test]
+    fn test_set_dry_wet() {
+        let mut mgr = VoiceFxManager::new();
+        mgr.set_dry_wet(0.5).unwrap();
+        assert_eq!(mgr.get_state().dry_wet, 0.5);
+    }
+
+    #[test]
+    fn test_set_dry_wet_invalid() {
+        let mut mgr = VoiceFxManager::new();
+        assert!(mgr.set_dry_wet(-0.1).is_err());
+        assert!(mgr.set_dry_wet(1.5).is_err());
+    }
+
+    #[test]
+    fn test_all_presets() {
+        let presets = VoiceFxPreset::all();
+        assert_eq!(presets.len(), 7);
+        assert!(presets.contains(&VoiceFxPreset::None));
+        assert!(presets.contains(&VoiceFxPreset::Robot));
+        assert!(presets.contains(&VoiceFxPreset::Vader));
+        assert!(presets.contains(&VoiceFxPreset::Chipmunk));
+        assert!(presets.contains(&VoiceFxPreset::Megaphone));
+        assert!(presets.contains(&VoiceFxPreset::Echo));
+        assert!(presets.contains(&VoiceFxPreset::Radio));
+    }
+
+    #[test]
+    fn test_preset_names() {
+        assert_eq!(VoiceFxPreset::None.name(), "Aus");
+        assert_eq!(VoiceFxPreset::Robot.name(), "Robot");
+        assert_eq!(VoiceFxPreset::Vader.name(), "Vader");
+        assert_eq!(VoiceFxPreset::Chipmunk.name(), "Chipmunk");
+        assert_eq!(VoiceFxPreset::Megaphone.name(), "Megaphone");
+        assert_eq!(VoiceFxPreset::Echo.name(), "Echo");
+        assert_eq!(VoiceFxPreset::Radio.name(), "Radio");
+    }
+}
