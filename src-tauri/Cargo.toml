@@ -19,7 +19,7 @@ tauri-plugin-updater = "2"
 pipewire = "0.8"
 ringbuf = "0.4"
 rodio = "0.19"
-hound = "3.5"  # WAV/FLAC Encoder/Decoder
+hound = "3.5"      # WAV Encoder/Decoder
 
 # Async / Concurrency
 tokio = { version = "1", features = ["full"] }
