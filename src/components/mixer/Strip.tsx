@@ -13,15 +13,14 @@ interface StripProps {
 }
 
 /**
- * Kompletter Input-Strip mit allen Controls
+ * Kompletter Input-Strip — Spec: min-width 56px, bg #111318, border-radius 5px
  */
 export default function Strip({ strip }: StripProps) {
   const { setVolume, setGain, setMute, setSolo, setBusRouting, levels } = useMixerStore();
 
   const isHardware = strip.strip_type === 'Hardware';
   const color = isHardware ? 'cyan' : 'orange';
-  const accentColor = isHardware ? 'bg-inox-cyan/45' : 'bg-inox-orange/45';
-  const labelColor = isHardware ? 'text-inox-cyan' : 'text-inox-orange';
+  const accentColor = isHardware ? '#00e5ff' : '#ff8c00';
 
   const stripLevels = levels[strip.id] || {
     strip_id: strip.id,
@@ -35,56 +34,90 @@ export default function Strip({ strip }: StripProps) {
   const buses = ['A1', 'A2', 'B1', 'B2'];
 
   return (
-    <div className="min-w-[56px] bg-inox-strip border border-[rgba(255,255,255,0.05)] rounded-[5px] flex flex-col gap-1 p-2 pt-1">
-      {/* Dock Handle (6 Dots, Drag & Drop vorbereitet) */}
-      <div className="flex gap-0.5 justify-center mb-1 opacity-30 cursor-grab">
+    <div
+      className="relative flex flex-col items-center gap-[3px]"
+      style={{
+        minWidth: '56px',
+        padding: '5px 4px',
+        background: '#111318',
+        borderRadius: '5px',
+        border: '1px solid rgba(255,255,255,0.05)',
+      }}
+    >
+      {/* Dock Handle: 6 Dots (2×3), top-right */}
+      <div
+        className="absolute top-[2px] right-[2px] flex flex-wrap gap-[1px] opacity-0 hover:opacity-30 transition-opacity cursor-grab"
+        style={{ width: '8px', height: '8px', alignContent: 'center', justifyContent: 'center' }}
+      >
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="w-[2px] h-[2px] bg-inox-subtle rounded-full" />
+          <i key={i} className="block" style={{ width: '2px', height: '2px', background: 'rgba(255,255,255,0.4)', borderRadius: '50%' }} />
         ))}
       </div>
 
-      {/* Top Accent */}
-      <div className={`h-[2px] ${accentColor} rounded-full -mx-1`} />
+      {/* Top Accent: 2px Höhe, Kanalfarbe, opacity 45% */}
+      <div
+        className="absolute top-0 left-0 right-0"
+        style={{
+          height: '2px',
+          borderRadius: '5px 5px 0 0',
+          opacity: 0.45,
+          background: accentColor,
+        }}
+      />
 
-      {/* Icon + Label */}
-      <div className="flex flex-col items-center gap-0.5">
-        <span className="text-[11px]">{strip.icon}</span>
-        <span className={`text-[6px] font-bold tracking-wider ${labelColor}`}>{strip.label}</span>
+      {/* Icon: 11px */}
+      <div style={{ fontSize: '11px' }}>{strip.icon}</div>
+
+      {/* Label: 6px, 700 weight, Kanalfarbe, letter-spacing 1px */}
+      <div
+        style={{
+          fontSize: '6px',
+          fontWeight: 700,
+          color: accentColor,
+          letterSpacing: '1px',
+        }}
+      >
+        {strip.label}
       </div>
 
-      {/* Gain Knob */}
+      {/* Gain Knob: 20px */}
       <Knob
         value={strip.gain_db}
         onChange={(val) => setGain(strip.id, val)}
         label="GAIN"
         color={color}
+        size={20}
       />
 
-      {/* VU-Meter + Fader */}
-      <div className="flex gap-1 items-center justify-center" style={{ height: '90px' }}>
-        {/* VU Meter Links */}
-        <VUMeter peak={stripLevels.peak_l} rms={stripLevels.rms_l} color={color} />
-        {/* Fader */}
+      {/* VU-Meter + Fader: 75px Höhe */}
+      <div className="flex gap-[2px] items-center" style={{ height: '75px' }}>
+        <VUMeter peak={stripLevels.peak_l} rms={stripLevels.rms_l} color={color} height={75} />
         <Fader
           value={strip.volume_db}
           onChange={(val) => setVolume(strip.id, val)}
           color={color}
           disabled={strip.muted}
+          height={90}
         />
-        {/* VU Meter Rechts */}
-        <VUMeter peak={stripLevels.peak_r} rms={stripLevels.rms_r} color={color} />
+        <VUMeter peak={stripLevels.peak_r} rms={stripLevels.rms_r} color={color} height={75} />
       </div>
 
-      {/* dB Display */}
-      <div className={`text-[7px] text-center font-mono ${labelColor}`}>
-        {strip.volume_db.toFixed(1)} dB
+      {/* dB-Anzeige: 7px, Kanalfarbe, 600 weight */}
+      <div
+        style={{
+          fontSize: '7px',
+          fontWeight: 600,
+          color: accentColor,
+        }}
+      >
+        {strip.volume_db.toFixed(1)} <span style={{ fontSize: '5px', opacity: 0.4 }}>dB</span>
       </div>
 
       {/* FX Button */}
       <FXButton active={strip.fx_enabled} onClick={() => {}} />
 
-      {/* Bus Routing */}
-      <div className="grid grid-cols-2 gap-0.5">
+      {/* Bus Routing: 4 inline Chips */}
+      <div className="flex gap-[1px]">
         {buses.map((busId) => (
           <BusButton
             key={busId}
@@ -95,12 +128,20 @@ export default function Strip({ strip }: StripProps) {
         ))}
       </div>
 
-      {/* Mute / Solo */}
-      <div className="flex gap-0.5">
+      {/* Mute / Solo: 5.5px font */}
+      <div className="flex gap-[2px]">
         <button
-          className={`flex-1 text-[7px] font-bold py-0.5 rounded-sm ${
-            strip.muted ? 'bg-inox-red text-white' : 'bg-inox-subtle text-inox-muted'
-          }`}
+          style={{
+            padding: '2px 4px',
+            fontSize: '5.5px',
+            fontWeight: 700,
+            letterSpacing: '0.4px',
+            textTransform: 'uppercase',
+            borderRadius: '2px',
+            border: `1px solid ${strip.muted ? 'transparent' : 'rgba(255,255,255,0.05)'}`,
+            background: strip.muted ? '#ff1744' : 'rgba(255,255,255,0.01)',
+            color: strip.muted ? '#fff' : 'rgba(255,255,255,0.18)',
+          }}
           onClick={() => setMute(strip.id, !strip.muted)}
           aria-label="Mute"
           aria-pressed={strip.muted}
@@ -108,9 +149,17 @@ export default function Strip({ strip }: StripProps) {
           M
         </button>
         <button
-          className={`flex-1 text-[7px] font-bold py-0.5 rounded-sm ${
-            strip.solo ? 'bg-inox-amber text-inox-bg' : 'bg-inox-subtle text-inox-muted'
-          }`}
+          style={{
+            padding: '2px 4px',
+            fontSize: '5.5px',
+            fontWeight: 700,
+            letterSpacing: '0.4px',
+            textTransform: 'uppercase',
+            borderRadius: '2px',
+            border: `1px solid ${strip.solo ? 'transparent' : 'rgba(255,255,255,0.05)'}`,
+            background: strip.solo ? '#e6a117' : 'rgba(255,255,255,0.01)',
+            color: strip.solo ? '#000' : 'rgba(255,255,255,0.18)',
+          }}
           onClick={() => setSolo(strip.id, !strip.solo)}
           aria-label="Solo"
           aria-pressed={strip.solo}

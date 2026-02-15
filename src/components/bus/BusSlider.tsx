@@ -104,12 +104,15 @@ export default function BusSlider({ value, onChange, color, disabled = false }: 
         />
         {/* Thumb */}
         <div
-          className={`absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full ${colorClass} ${
-            disabled ? 'opacity-30' : 'opacity-100'
-          } transition-opacity`}
+          className="absolute top-1/2 -translate-y-1/2 rounded-[1px] transition-opacity"
           style={{
+            width: '6px',
+            height: '8px',
             left: `${thumbX}px`,
-            marginLeft: '-4px',
+            marginLeft: '-3px',
+            background: 'linear-gradient(180deg, #555 0%, #333 100%)',
+            border: '1px solid #666',
+            opacity: disabled ? 0.3 : 1,
           }}
         />
       </div>

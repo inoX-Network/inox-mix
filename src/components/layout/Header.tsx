@@ -5,9 +5,7 @@ import RecordingControl from './RecordingControl';
 import ScenesControl from './ScenesControl';
 
 /** Header-Leiste mit App-Name, PipeWire-Status und Audio-Parametern */
-interface HeaderProps {}
-
-function Header(_props: HeaderProps) {
+function Header() {
   const systemInfo = useAppStore((s) => s.systemInfo);
   const pipewireWarning = useAppStore((s) => s.pipewireWarning);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
@@ -17,81 +15,74 @@ function Header(_props: HeaderProps) {
   const pwConnected = systemInfo?.pipewire_running && !pipewireWarning;
 
   return (
-    <header className="h-8 bg-inox-panel border-b border-[rgba(255,255,255,0.05)] flex items-center px-3 justify-between shrink-0">
+    <header className="flex items-center justify-between px-3 py-[5px] border-b border-[rgba(255,255,255,0.05)] shrink-0"
+      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(14px)' }}
+    >
       {/* Links: Logo + Version */}
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] font-extrabold tracking-[2px] text-inox-cyan uppercase">
+      <div className="flex items-center gap-[6px]">
+        {/* PW-Status Dot */}
+        <div
+          className={`w-[6px] h-[6px] rounded-full ${
+            pwConnected
+              ? 'bg-inox-green shadow-[0_0_6px_rgba(118,255,3,0.4)]'
+              : 'bg-inox-red shadow-[0_0_6px_rgba(255,23,68,0.5)]'
+          }`}
+          style={{ animation: 'pls 2s infinite' }}
+        />
+        {/* Logo mit Gradient */}
+        <span
+          className="text-[15px] font-extrabold tracking-[3px] uppercase"
+          style={{
+            background: 'linear-gradient(135deg, #00e5ff, #80deea)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
           inoX-MIX
         </span>
-        <span className="text-[9px] font-medium text-inox-muted tracking-wider">
+        {/* Version-Chip */}
+        <span
+          className="text-[7px] font-medium tracking-[1px] px-1 py-[1px] rounded-sm"
+          style={{
+            border: '1px solid rgba(0,229,255,0.3)',
+            color: '#00e5ff',
+          }}
+        >
           v{systemInfo?.app_version ?? '0.3'}
         </span>
       </div>
 
-      {/* Mitte: PipeWire-Status + Audio-Parameter */}
-      <div className="flex items-center gap-4">
-        {/* PipeWire-Status-Dot */}
-        <div className="flex items-center gap-1.5">
-          <div
-            className={`w-[6px] h-[6px] rounded-full ${
-              pwConnected
-                ? 'bg-inox-green shadow-[0_0_4px_rgba(76,175,80,0.5)]'
-                : 'bg-inox-red shadow-[0_0_4px_rgba(255,23,68,0.5)]'
-            }`}
-          />
-          <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-inox-dim">
-            {pwConnected ? 'PW OK' : 'PW OFFLINE'}
-          </span>
-        </div>
+      {/* Mitte: Tabs — werden in TabBar gerendert, hier nur Platzhalter */}
 
-        {/* Audio-Parameter */}
+      {/* Rechts: Audio-Info, Recording, Scenes, Stream */}
+      <div className="flex items-center gap-2">
+        {/* Audio-Parameter (inline wie Mockup) */}
         {systemInfo && (
-          <div className="flex items-center gap-3">
-            <div className="flex flex-col items-center">
-              <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-inox-faint">
-                RATE
-              </span>
-              <span className="text-[8px] font-semibold text-inox-dim">
-                {(systemInfo.sample_rate / 1000).toFixed(1)}k
-              </span>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-inox-faint">
-                BUFFER
-              </span>
-              <span className="text-[8px] font-semibold text-inox-dim">
-                {systemInfo.buffer_size}
-              </span>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-[5px] font-bold uppercase tracking-[0.5px] text-inox-faint">
-                LATENZ
-              </span>
-              <span className="text-[8px] font-semibold text-inox-dim">
-                {((systemInfo.buffer_size / systemInfo.sample_rate) * 1000).toFixed(1)}ms
-              </span>
-            </div>
-          </div>
+          <span className="text-[6px] text-white/[0.18] tracking-[1px]">
+            {(systemInfo.sample_rate / 1000).toFixed(0)}kHz / 32bit / PipeWire
+          </span>
         )}
-      </div>
+        {systemInfo && (
+          <span className="text-[6px] tracking-[1px] text-inox-green">
+            {((systemInfo.buffer_size / systemInfo.sample_rate) * 1000).toFixed(1)}ms
+          </span>
+        )}
 
-      {/* Rechts: Recording, Scenes, Streamer-Sidebar Toggle */}
-      <div className="flex items-center gap-3">
         <RecordingControl />
-        <div className="w-[1px] h-4 bg-inox-subtle/20" />
         <ScenesControl />
-        <div className="w-[1px] h-4 bg-inox-subtle/20" />
+
+        {/* STREAM Button */}
         <button
-        id="btn-001"
-        aria-label="Stream-Sidebar umschalten"
-        onClick={toggleSidebar}
-        className={`text-[6px] font-bold uppercase tracking-[1px] px-2 py-0.5 rounded border transition-colors ${
-          sidebarOpen
-            ? 'border-inox-orange text-inox-orange bg-inox-orange/10'
-            : 'border-[rgba(255,255,255,0.1)] text-inox-muted hover:text-inox-dim hover:border-[rgba(255,255,255,0.2)]'
-        }`}
-      >
-        STREAM
+          id="btn-001"
+          aria-label="Stream-Sidebar umschalten"
+          onClick={toggleSidebar}
+          className={`text-[6px] font-bold uppercase tracking-[1px] px-2 py-[2px] rounded-sm border transition-colors ${
+            sidebarOpen
+              ? 'border-inox-orange text-inox-orange bg-inox-orange/10'
+              : 'border-[rgba(255,255,255,0.1)] text-white/[0.18] hover:text-white/[0.3] hover:border-[rgba(255,255,255,0.2)]'
+          }`}
+        >
+          STREAM
         </button>
       </div>
     </header>

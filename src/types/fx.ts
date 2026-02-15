@@ -51,7 +51,9 @@ export interface FxParamMeta {
 export interface FxModuleMeta {
   /** Modul-Typ */
   type: FxModuleType;
-  /** Anzeige-Name (z.B. "HPF", "GATE") */
+  /** Kurz-ID (z.B. "HPF", "AI-DN", "GATE") */
+  shortId: string;
+  /** Voller Anzeige-Name (z.B. "Hi-Pass Filter", "AI Denoise") */
   name: string;
   /** Farbe (cyan oder orange) */
   color: 'cyan' | 'orange';
@@ -65,7 +67,8 @@ export interface FxModuleMeta {
 export const FX_MODULE_META: Record<FxModuleType, FxModuleMeta> = {
   Hpf: {
     type: 'Hpf',
-    name: 'HPF',
+    shortId: 'HPF',
+    name: 'Hi-Pass Filter',
     color: 'cyan',
     params: [
       {
@@ -80,13 +83,24 @@ export const FX_MODULE_META: Record<FxModuleType, FxModuleMeta> = {
   },
   Denoise: {
     type: 'Denoise',
-    name: 'AI-DN',
+    shortId: 'AI-DN',
+    name: 'AI Denoise',
     color: 'orange',
-    params: [],
+    params: [
+      {
+        name: 'strength',
+        label: 'Strength',
+        min: 0,
+        max: 100,
+        default: 50,
+        unit: '%',
+      },
+    ],
   },
   Gate: {
     type: 'Gate',
-    name: 'GATE',
+    shortId: 'GATE',
+    name: 'Noise Gate',
     color: 'cyan',
     params: [
       {
@@ -125,7 +139,8 @@ export const FX_MODULE_META: Record<FxModuleType, FxModuleMeta> = {
   },
   DeEsser: {
     type: 'DeEsser',
-    name: 'DE-S',
+    shortId: 'DE-S',
+    name: 'De-Esser',
     color: 'orange',
     params: [
       {
@@ -156,7 +171,8 @@ export const FX_MODULE_META: Record<FxModuleType, FxModuleMeta> = {
   },
   Eq: {
     type: 'Eq',
-    name: 'EQ',
+    shortId: 'EQ',
+    name: 'Equalizer',
     color: 'cyan',
     params: [
       {
@@ -235,7 +251,8 @@ export const FX_MODULE_META: Record<FxModuleType, FxModuleMeta> = {
   },
   Compressor: {
     type: 'Compressor',
-    name: 'COMP',
+    shortId: 'COMP',
+    name: 'Compressor',
     color: 'orange',
     params: [
       {
@@ -274,7 +291,8 @@ export const FX_MODULE_META: Record<FxModuleType, FxModuleMeta> = {
   },
   Limiter: {
     type: 'Limiter',
-    name: 'LIM',
+    shortId: 'LIM',
+    name: 'Limiter',
     color: 'cyan',
     params: [
       {
@@ -297,7 +315,8 @@ export const FX_MODULE_META: Record<FxModuleType, FxModuleMeta> = {
   },
   AutoGain: {
     type: 'AutoGain',
-    name: 'A-G',
+    shortId: 'A-G',
+    name: 'Auto-Gain',
     color: 'orange',
     params: [
       {

@@ -69,7 +69,6 @@ function Soundboard(_props: SoundboardProps) {
 
   const handleAddSound = () => {
     // TODO: Open file dialog to add new sound
-    console.log('Add sound dialog');
   };
 
   const handleMasterVolumeChange = async (value: number) => {
@@ -85,14 +84,14 @@ function Soundboard(_props: SoundboardProps) {
   };
 
   return (
-    <div className="p-3">
+    <div className="p-6">
       {/* Header */}
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between">
         <div>
-          <h3 className="text-[7px] font-extrabold uppercase tracking-wider text-orange-500">
+          <h3 className="text-[13px] font-extrabold uppercase tracking-wider text-inox-orange">
             Soundboard
           </h3>
-          <p className="text-[5px] text-gray-600 mt-0.5">
+          <p className="text-[9px] text-inox-muted mt-1">
             {sounds.length} Sounds geladen
           </p>
         </div>
@@ -100,16 +99,16 @@ function Soundboard(_props: SoundboardProps) {
         {/* Add Sound Button */}
         <button
           onClick={handleAddSound}
-          className="px-2 py-1 text-[5px] font-bold uppercase tracking-wide bg-orange-500/20 hover:bg-orange-500/30 text-orange-500 border border-orange-500/50 rounded transition-colors"
+          className="px-4 py-2 text-[9px] font-bold uppercase tracking-wide bg-inox-orange/20 hover:bg-inox-orange/30 text-inox-orange border border-inox-orange/50 rounded transition-colors"
         >
           + Sound
         </button>
       </div>
 
       {/* Sound-Pads Grid */}
-      <div className="grid grid-cols-2 gap-1.5 mb-3">
+      <div className="grid grid-cols-2 gap-4 mb-6">
         {sounds.length === 0 ? (
-          <div className="col-span-2 p-4 text-center text-[5px] text-gray-600">
+          <div className="col-span-2 p-8 text-center text-[11px] text-inox-muted">
             Keine Sounds vorhanden. Klicke auf "+ Sound" um einen hinzuzufügen.
           </div>
         ) : (
@@ -124,25 +123,25 @@ function Soundboard(_props: SoundboardProps) {
                   e.preventDefault();
                   handleStopSound(sound.id);
                 }}
-                className={`relative px-2 py-2 text-[5px] font-bold uppercase tracking-wide rounded transition-all ${
+                className={`relative px-6 py-6 text-[11px] font-bold uppercase tracking-wide rounded transition-all ${
                   isPlaying
-                    ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/50'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700'
+                    ? 'bg-inox-orange text-white shadow-lg shadow-inox-orange/50'
+                    : 'bg-inox-strip text-inox-muted hover:bg-inox-subtle border border-inox-subtle'
                 }`}
               >
                 {/* Sound Name */}
-                <div className="text-[5px] mb-1 truncate">{sound.name}</div>
+                <div className="text-[13px] mb-3 truncate">{sound.name}</div>
 
                 {/* Hotkey (if set) */}
                 {sound.hotkey && (
-                  <div className="text-[4px] text-orange-500 font-mono">
+                  <div className="text-[10px] text-inox-orange font-mono">
                     {sound.hotkey}
                   </div>
                 )}
 
                 {/* Playing Indicator */}
                 {isPlaying && (
-                  <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-white animate-pulse" />
                 )}
               </button>
             );
@@ -151,7 +150,7 @@ function Soundboard(_props: SoundboardProps) {
       </div>
 
       {/* Master Volume */}
-      <div className="mt-3 pt-3 border-t border-gray-800">
+      <div className="mt-6 pt-6 border-t border-inox-subtle/20">
         <Slider
           label="MASTER VOL"
           value={(masterVolume + 30) / 40}
@@ -162,7 +161,7 @@ function Soundboard(_props: SoundboardProps) {
       </div>
 
       {/* Info */}
-      <div className="mt-2 text-[4.5px] text-gray-600 text-center">
+      <div className="mt-4 text-[8px] text-inox-muted text-center">
         Linksklick = Play · Rechtsklick = Stop
       </div>
     </div>

@@ -1,63 +1,31 @@
 // Component: FxSlider — Horizontaler Parameter-Slider für FX-Module
+// Spec: Track 5px Höhe, Thumb 6×8px, fill mit box-shadow
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 interface FxSliderProps {
-  /** Aktueller Wert */
   value: number;
-  /** Minimal-Wert */
   min: number;
-  /** Maximal-Wert */
   max: number;
-  /** Callback bei Änderung */
   onChange: (value: number) => void;
-  /** Farbe (cyan oder orange) */
   color: 'cyan' | 'orange';
-  /** Deaktiviert */
   disabled?: boolean;
 }
 
-const SLIDER_WIDTH = 100; // px
-
-/**
- * Wert in Pixel-Position umrechnen
- */
-function valueToPosition(value: number, min: number, max: number): number {
-  const normalized = (value - min) / (max - min); // 0..1
-  return normalized * SLIDER_WIDTH;
-}
-
-/**
- * Pixel-Position in Wert umrechnen
- */
-function positionToValue(pos: number, min: number, max: number): number {
-  const normalized = pos / SLIDER_WIDTH; // 0..1
-  return min + normalized * (max - min);
-}
-
-/**
- * Horizontaler Slider für FX-Parameter
- */
-export default function FxSlider({
-  value,
-  min,
-  max,
-  onChange,
-  color,
-  disabled = false,
-}: FxSliderProps) {
+/** Horizontaler Slider für FX-Parameter */
+export default function FxSlider({ value, min, max, onChange, color, disabled = false }: FxSliderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
+  const fillColor = color === 'cyan' ? '#00e5ff' : '#ff8c00';
 
-  const colorClass = color === 'cyan' ? 'bg-inox-cyan' : 'bg-inox-orange';
-  const thumbX = valueToPosition(value, min, max);
+  const normalized = (value - min) / (max - min);
 
   const updateValue = useCallback(
     (clientX: number) => {
       if (!trackRef.current || disabled) return;
       const rect = trackRef.current.getBoundingClientRect();
-      const x = Math.max(0, Math.min(SLIDER_WIDTH, clientX - rect.left));
-      const newValue = positionToValue(x, min, max);
-      // Runde auf 1 Dezimalstelle
+      const w = rect.width;
+      const x = Math.max(0, Math.min(w, clientX - rect.left));
+      const newValue = min + (x / w) * (max - min);
       onChange(Math.round(newValue * 10) / 10);
     },
     [onChange, disabled, min, max]
@@ -72,18 +40,10 @@ export default function FxSlider({
 
   useEffect(() => {
     if (!isDragging) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      updateValue(e.clientX);
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
+    const handleMouseMove = (e: MouseEvent) => updateValue(e.clientX);
+    const handleMouseUp = () => setIsDragging(false);
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -91,37 +51,41 @@ export default function FxSlider({
   }, [isDragging, updateValue]);
 
   return (
-    <div className="flex items-center">
-      {/* Slider Track */}
+    <div
+      ref={trackRef}
+      className="relative w-full cursor-pointer select-none"
+      style={{ height: '5px', background: 'rgba(255,255,255,0.03)', borderRadius: '3px' }}
+      onMouseDown={handleMouseDown}
+      role="slider"
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={value}
+      aria-disabled={disabled}
+    >
+      {/* Fill */}
       <div
-        ref={trackRef}
-        className="relative h-1 bg-inox-subtle rounded-full cursor-pointer select-none"
-        style={{ width: `${SLIDER_WIDTH}px` }}
-        onMouseDown={handleMouseDown}
-        role="slider"
-        aria-valuemin={min}
-        aria-valuemax={max}
-        aria-valuenow={value}
-        aria-disabled={disabled}
-      >
-        {/* Fill */}
-        <div
-          className={`absolute left-0 top-0 h-full rounded-full ${colorClass} ${
-            disabled ? 'opacity-30' : 'opacity-100'
-          } transition-opacity`}
-          style={{ width: `${thumbX}px` }}
-        />
-        {/* Thumb */}
-        <div
-          className={`absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full ${colorClass} ${
-            disabled ? 'opacity-30' : 'opacity-100'
-          } transition-opacity`}
-          style={{
-            left: `${thumbX}px`,
-            marginLeft: '-4px',
-          }}
-        />
-      </div>
+        className="absolute left-0 top-0 h-full rounded-[3px]"
+        style={{
+          width: `${normalized * 100}%`,
+          backgroundColor: fillColor,
+          boxShadow: `0 0 4px ${fillColor}25`,
+          opacity: disabled ? 0.3 : 1,
+        }}
+      />
+      {/* Thumb: 6×8px */}
+      <div
+        className="absolute top-1/2 -translate-y-1/2 rounded-sm"
+        style={{
+          width: '6px',
+          height: '8px',
+          left: `${normalized * 100}%`,
+          marginLeft: '-3px',
+          background: 'linear-gradient(180deg, #555, #333)',
+          border: '1px solid #666',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.4)',
+          opacity: disabled ? 0.3 : 1,
+        }}
+      />
     </div>
   );
 }

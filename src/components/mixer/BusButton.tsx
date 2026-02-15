@@ -9,22 +9,23 @@ interface BusButtonProps {
   onClick: () => void;
 }
 
-/**
- * Mini Bus-Routing Button
- * Cyan für A-Busse (Hardware), Orange für B-Busse (Virtual)
- */
+/** Mini Bus-Routing Button — Spec: 15×11px, 4.5px font, 800 weight */
 export default function BusButton({ busId, active, onClick }: BusButtonProps) {
   const isABus = busId.startsWith('A');
-  const activeColor = isABus ? 'bg-inox-cyan text-inox-bg' : 'bg-inox-orange text-inox-bg';
-  const inactiveColor = isABus
-    ? 'border-inox-cyan/40 text-inox-cyan/60'
-    : 'border-inox-orange/40 text-inox-orange/60';
+  const activeColor = isABus ? '#00e5ff' : '#ff8c00';
 
   return (
     <button
-      className={`px-1 py-[1.5px] text-[5px] font-bold uppercase tracking-[0.4px] border rounded-sm transition-all ${
-        active ? activeColor : `${inactiveColor} bg-transparent`
-      }`}
+      className="inline-flex items-center justify-center rounded-sm transition-all"
+      style={{
+        width: '15px',
+        height: '11px',
+        fontSize: '4.5px',
+        fontWeight: 800,
+        border: `1px solid ${active ? 'transparent' : 'rgba(255,255,255,0.05)'}`,
+        background: active ? activeColor : 'rgba(255,255,255,0.01)',
+        color: active ? '#000' : 'rgba(255,255,255,0.13)',
+      }}
       onClick={onClick}
       aria-label={`Bus ${busId}`}
       aria-pressed={active}

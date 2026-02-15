@@ -31,7 +31,6 @@ export default function ScenesControl() {
     invoke('load_scene', { id: sceneId })
       .then(() => {
         setSelectedScene(sceneId);
-        console.log('Scene geladen:', sceneId);
       })
       .catch(console.error);
   };
@@ -73,12 +72,24 @@ export default function ScenesControl() {
   };
 
   return (
-    <div className="flex items-center gap-2">
-      {/* Scene-Dropdown */}
+    <div className="flex items-center gap-3">
+      {/* Scene-Dropdown (Custom Dark Style) */}
       <select
-        className="bg-inox-strip border border-inox-subtle/20 rounded text-[6px] text-inox-text px-1 py-0.5 font-mono min-w-[80px]"
+        className="bg-inox-strip border rounded text-[11px] px-3 py-1 font-oxanium min-w-[120px] transition-colors cursor-pointer appearance-none pr-7"
+        style={{
+          borderColor: 'rgba(255,255,255,0.08)',
+          borderRadius: '6px',
+          color: 'rgba(255,255,255,0.5)',
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='15' height='9' viewBox='0 0 15 9' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1.5 1.5L7.5 7.5L13.5 1.5' stroke='rgba(255,255,255,0.2)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'right 6px center',
+        }}
         value={selectedScene}
         onChange={(e) => loadScene(e.target.value)}
+        onMouseEnter={(e) => e.currentTarget.style.borderColor = 'rgba(0,229,255,0.15)'}
+        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'}
+        onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(0,229,255,0.25)'}
+        onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'}
       >
         <option value="">Scene wählen...</option>
         {scenes.map((scene) => (
@@ -91,7 +102,7 @@ export default function ScenesControl() {
       {/* Save-Button */}
       <button
         onClick={() => setShowSaveModal(true)}
-        className="text-[6px] font-bold uppercase tracking-[1px] px-2 py-0.5 rounded border border-inox-subtle/20 text-inox-muted hover:text-inox-dim hover:border-inox-subtle/40 transition-colors"
+        className="text-[9px] font-bold uppercase tracking-[1.5px] px-3 py-1 rounded border border-inox-subtle/20 text-inox-muted hover:text-inox-dim hover:border-inox-subtle/40 transition-colors"
       >
         💾 SAVE
       </button>
@@ -99,8 +110,8 @@ export default function ScenesControl() {
       {/* Save Modal */}
       {showSaveModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-inox-panel border border-inox-subtle/20 rounded p-4 min-w-[300px]">
-            <h3 className="text-[8px] font-bold text-inox-cyan tracking-wider uppercase mb-2">
+          <div className="bg-inox-panel border border-inox-subtle/20 rounded p-6 min-w-[450px]">
+            <h3 className="text-[12px] font-bold text-inox-cyan tracking-wider uppercase mb-3">
               Scene speichern
             </h3>
             <input
@@ -109,19 +120,19 @@ export default function ScenesControl() {
               value={newSceneName}
               onChange={(e) => setNewSceneName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && saveScene()}
-              className="w-full bg-inox-strip border border-inox-subtle/20 rounded text-[7px] text-inox-text px-2 py-1 mb-3 font-mono"
+              className="w-full bg-inox-strip border border-inox-subtle/20 rounded text-[11px] text-inox-text px-3 py-2 mb-5 font-mono"
               autoFocus
             />
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
                 onClick={saveScene}
-                className="flex-1 text-[6px] font-bold uppercase tracking-[1px] px-3 py-1 rounded bg-inox-cyan/40 text-inox-cyan hover:bg-inox-cyan/60 transition-colors"
+                className="flex-1 text-[9px] font-bold uppercase tracking-[1.5px] px-5 py-2 rounded bg-inox-cyan/40 text-inox-cyan hover:bg-inox-cyan/60 transition-colors"
               >
                 Speichern
               </button>
               <button
                 onClick={() => setShowSaveModal(false)}
-                className="flex-1 text-[6px] font-bold uppercase tracking-[1px] px-3 py-1 rounded bg-inox-subtle text-inox-muted hover:bg-inox-strip transition-colors"
+                className="flex-1 text-[9px] font-bold uppercase tracking-[1.5px] px-5 py-2 rounded bg-inox-subtle text-inox-muted hover:bg-inox-strip transition-colors"
               >
                 Abbrechen
               </button>

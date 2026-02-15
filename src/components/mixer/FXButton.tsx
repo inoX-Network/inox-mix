@@ -7,21 +7,28 @@ interface FXButtonProps {
   onClick: () => void;
 }
 
-/**
- * FX-Chain Toggle-Button
- * Cyan wenn aktiv, grau wenn inaktiv
- */
+/** FX-Chain Toggle-Button — Spec: 5.5px font, full width */
 export default function FXButton({ active, onClick }: FXButtonProps) {
   return (
     <button
-      className={`px-1.5 py-0.5 text-[5px] font-bold uppercase tracking-wider rounded-sm transition-all ${
-        active ? 'bg-inox-cyan text-inox-bg' : 'bg-inox-subtle/30 text-inox-muted border border-inox-subtle'
-      }`}
+      className="w-full text-center cursor-pointer transition-all"
+      style={{
+        padding: '2px 5px',
+        fontSize: '5.5px',
+        fontWeight: 700,
+        letterSpacing: '0.7px',
+        textTransform: 'uppercase' as const,
+        borderRadius: '2px',
+        border: `1px solid ${active ? '#00e5ff' : 'rgba(255,255,255,0.05)'}`,
+        background: active ? 'rgba(0,229,255,0.04)' : 'rgba(255,255,255,0.01)',
+        color: active ? '#00e5ff' : 'rgba(255,255,255,0.15)',
+        boxShadow: active ? '0 0 5px rgba(0,229,255,0.08)' : 'none',
+      }}
       onClick={onClick}
       aria-label="FX-Chain"
       aria-pressed={active}
     >
-      FX
+      FX {active ? '●' : '○'}
     </button>
   );
 }
