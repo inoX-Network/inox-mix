@@ -208,3 +208,65 @@ impl SoundboardManager {
         self.master_volume_db
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::database::Database;
+    use std::sync::Arc;
+
+    fn setup() -> SoundboardManager {
+        let db = Arc::new(Database::open_in_memory().unwrap());
+        SoundboardManager::new(db)
+    }
+
+    #[test]
+    fn test_soundboard_new() {
+        let manager = setup();
+        assert_eq!(manager.get_master_volume(), 0.0);
+    }
+
+    #[test]
+    fn test_add_sound_nonexistent_file() {
+        let manager = setup();
+        let result = manager.add_sound("Test", "/nonexistent/file.wav", None, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("nicht gefunden"));
+    }
+
+    #[test]
+    fn test_list_sounds_empty() {
+        let manager = setup();
+        let sounds = manager.get_sounds().unwrap();
+        assert_eq!(sounds.len(), 0);
+    }
+
+    #[test]
+    fn test_remove_nonexistent() {
+        let manager = setup();
+        let result = manager.remove_sound("nonexistent");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_play_sound_nonexistent() {
+        let manager = setup();
+        let result = manager.play_sound("nonexistent");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_set_master_volume() {
+        let mut manager = setup();
+        manager.set_master_volume(6.0);
+        assert_eq!(manager.get_master_volume(), 6.0);
+    }
+
+    #[test]
+    fn test_stop_sound_not_implemented() {
+        let manager = setup();
+        let result = manager.stop_sound("any_id");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("noch nicht implementiert"));
+    }
+}
