@@ -1,6 +1,6 @@
 // Modul: audio/pipewire — PipeWire-Session und Node-Verwaltung
 use serde::{Deserialize, Serialize};
-use log::{info, error};
+use log::{info, error, warn};
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use std::thread;
 
@@ -383,8 +383,22 @@ pub fn remove_audio_link(source_id: &str, bus_id: &str) -> Result<(), String> {
 
 /// Alle Audio-Geräte aus PipeWire abfragen
 ///
-/// Phase 2b: Nutzt pw-cli um alle Audio-Nodes zu listen
+/// Phase 2b: Erweitert um dynamische Node-Discovery via PipeWire-Registry
 pub fn list_audio_devices() -> Result<Vec<AudioDevice>, String> {
+    // Phase 2b: Versuche zuerst Registry-basierte Discovery
+    // Fallback auf pw-cli wenn Registry nicht verfügbar
+    match list_audio_devices_via_registry() {
+        Ok(devices) if !devices.is_empty() => {
+            info!("PipeWire Nodes via Registry: {}", devices.len());
+            return Ok(devices);
+        }
+        Err(e) => {
+            warn!("Registry-Discovery fehlgeschlagen, Fallback auf pw-cli: {}", e);
+        }
+        _ => {}
+    }
+
+    // Fallback: pw-cli basierte Discovery
     let output = std::process::Command::new("pw-cli")
         .arg("list-objects")
         .arg("Node")
@@ -398,8 +412,98 @@ pub fn list_audio_devices() -> Result<Vec<AudioDevice>, String> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let devices = parse_pw_nodes(&stdout);
 
-    info!("PipeWire Nodes gefunden: {}", devices.len());
+    info!("PipeWire Nodes via pw-cli: {}", devices.len());
     Ok(devices)
+}
+
+/// Audio-Devices via PipeWire-Registry abfragen (Phase 2b)
+///
+/// Nutzt die PipeWire-API direkt statt CLI-Tools
+fn list_audio_devices_via_registry() -> Result<Vec<AudioDevice>, String> {
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    // Timeout für Registry-Scan
+    const REGISTRY_TIMEOUT_MS: u64 = 500;
+
+    let (tx, rx) = mpsc::channel();
+
+    // PipeWire initialisieren für Registry-Scan
+    pipewire::init();
+
+    let mainloop = pipewire::main_loop::MainLoop::new(None)
+        .map_err(|e| format!("MainLoop Fehler: {}", e))?;
+
+    let context = pipewire::context::Context::new(&mainloop)
+        .map_err(|e| format!("Context Fehler: {}", e))?;
+
+    let core = context.connect(None)
+        .map_err(|e| format!("Core Verbindung fehlgeschlagen: {}", e))?;
+
+    let registry = core.get_registry()
+        .map_err(|e| format!("Registry-Zugriff fehlgeschlagen: {}", e))?;
+
+    let mut devices = Vec::new();
+
+    // Registry-Listener für Global-Events
+    let _listener = registry
+        .add_listener_local()
+        .global(move |global| {
+            // Nur Audio-Nodes berücksichtigen
+            if global.type_ == pipewire::types::ObjectType::Node {
+                // Node-Properties auslesen
+                if let Some(props) = &global.props {
+                    let name = props.get("node.name").unwrap_or("unknown").to_string();
+                    let media_class = props.get("media.class").unwrap_or("");
+
+                    // Nur Audio-Source/Sink Nodes
+                    let device_type = if media_class.contains("Source") || media_class.contains("Input") {
+                        "input".to_string()
+                    } else if media_class.contains("Sink") || media_class.contains("Output") {
+                        "output".to_string()
+                    } else {
+                        return; // Kein Audio-Node
+                    };
+
+                    let channels = props.get("audio.channels")
+                        .and_then(|s| s.parse::<u32>().ok())
+                        .unwrap_or(2);
+
+                    let device = AudioDevice {
+                        id: global.id,
+                        name,
+                        device_type,
+                        channels,
+                    };
+
+                    let _ = tx.send(device);
+                }
+            }
+        })
+        .register();
+
+    // Registry-Events sammeln (mit Timeout)
+    let start = std::time::Instant::now();
+    let loop_ref = mainloop.loop_();
+
+    while start.elapsed() < Duration::from_millis(REGISTRY_TIMEOUT_MS) {
+        // Iteration der MainLoop (nicht-blockierend)
+        loop_ref.iterate(Duration::from_millis(10));
+
+        // Events sammeln
+        if let Ok(device) = rx.try_recv() {
+            devices.push(device);
+        }
+    }
+
+    // Cleanup
+    unsafe { pipewire::deinit(); }
+
+    if devices.is_empty() {
+        Err("Keine Audio-Devices via Registry gefunden".to_string())
+    } else {
+        Ok(devices)
+    }
 }
 
 /// Parse pw-cli list-objects Output zu AudioDevice Liste
@@ -474,28 +578,69 @@ fn parse_pw_nodes(output: &str) -> Vec<AudioDevice> {
 ///
 /// Phase 2b: Erweitert um dynamische Node-Discovery
 fn map_source_to_port(source_id: &str) -> Result<String, String> {
-    // Zuerst versuchen, die Source über Node-Discovery zu finden
+    // Phase 2b: Dynamische Node-Discovery nutzen
     if let Ok(devices) = list_audio_devices() {
-        // Suche nach Source-ID in Node-Namen
-        for device in devices {
-            if device.device_type == "input" && device.name.contains(source_id) {
-                // Port-Namen konstruieren (Konvention: node_name:port_name)
-                return Ok(format!("{}:capture_FL", device.name));
+        // Strategie 1: Exakte ID-Suche in Node-Namen
+        for device in devices.iter() {
+            if device.device_type == "input" {
+                // Strip-ID Matching (z.B. "hw-mic-1" → "analog" oder "usb")
+                let matches = match source_id {
+                    "hw-mic-1" | "mic-1" => device.name.contains("analog"),
+                    "hw-mic-2" | "mic-2" => device.name.contains("usb"),
+                    id if id.starts_with("hw-input-") => {
+                        // Direkte Node-ID (z.B. "hw-input-42")
+                        if let Some(id_str) = id.strip_prefix("hw-input-") {
+                            if let Ok(node_id) = id_str.parse::<u32>() {
+                                device.id == node_id
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        }
+                    }
+                    _ => device.name.to_lowercase().contains(&source_id.to_lowercase()),
+                };
+
+                if matches {
+                    // Port-Namen konstruieren (Konvention: node_name:port_name)
+                    let port_name = format!("{}:capture_FL", device.name);
+                    info!("Source-Mapping: {} → {}", source_id, port_name);
+                    return Ok(port_name);
+                }
             }
         }
+
+        // Strategie 2: App-Audio Nodes (media.class = "Stream/Input/Audio")
+        if source_id.starts_with("app-") {
+            for device in devices.iter() {
+                if device.name.contains("application") || device.name.contains("client") {
+                    let app_name = source_id.strip_prefix("app-").unwrap_or(source_id);
+                    if device.name.to_lowercase().contains(&app_name.to_lowercase()) {
+                        let port_name = format!("{}:output_FL", device.name);
+                        info!("App-Source-Mapping: {} → {}", source_id, port_name);
+                        return Ok(port_name);
+                    }
+                }
+            }
+            return Err(format!(
+                "App-Audio Node nicht gefunden für: {}. \
+                 Stelle sicher, dass die Anwendung Audio abspielt.",
+                source_id
+            ));
+        }
+    } else {
+        warn!("Node-Discovery fehlgeschlagen, nutze Fallback-Mapping");
     }
 
     // Fallback: Hardcoded Mapping für bekannte Sources
     let port = match source_id {
-        "mic-1" => "alsa_input.pci-0000_00_1f.3.analog-stereo:capture_FL",
-        "mic-2" => "alsa_input.usb-0000_00_14.0.analog-stereo:capture_FL",
-        id if id.starts_with("app-") => {
-            // App-Audio: Suche in Application-Nodes
-            return Err(format!("App-Audio Routing noch nicht implementiert: {}", id));
-        }
+        "mic-1" | "hw-mic-1" => "alsa_input.pci-0000_00_1f.3.analog-stereo:capture_FL",
+        "mic-2" | "hw-mic-2" => "alsa_input.usb-0000_00_14.0.analog-stereo:capture_FL",
         _ => return Err(format!("Unbekannte Source-ID: {}", source_id)),
     };
 
+    info!("Source-Fallback-Mapping: {} → {}", source_id, port);
     Ok(port.to_string())
 }
 

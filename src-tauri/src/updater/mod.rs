@@ -1,6 +1,7 @@
 // Modul: updater — Update-Manager (GitHub Releases + Tauri Updater)
 use serde::{Deserialize, Serialize};
 use tauri_plugin_updater::UpdaterExt;
+use tauri::Emitter;
 
 /// Update-Information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,8 +69,8 @@ pub async fn check_for_updates(
                         Ok(Some(UpdateInfo {
                             version: update.version.clone(),
                             notes: update.body.clone().unwrap_or_default(),
-                            url: update.download_url.clone(),
-                            date: update.date.clone(),
+                            url: update.download_url.to_string(),
+                            date: update.date.map(|d| d.to_string()).unwrap_or_default(),
                             available: true,
                         }))
                     } else {

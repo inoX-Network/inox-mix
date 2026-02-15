@@ -1875,6 +1875,7 @@ dependencies = [
  "hound",
  "log",
  "pipewire",
+ "rand 0.8.5",
  "ringbuf",
  "rodio",
  "rusqlite",

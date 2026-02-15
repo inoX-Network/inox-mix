@@ -29,7 +29,6 @@
   "bundle": {
     "active": true,
     "targets": ["appimage", "deb"],
-    "identifier": "network.inox.mix",
     "publisher": "inoX-Network",
     "icon": [
       "icons/128x128.png",

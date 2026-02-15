@@ -1,6 +1,7 @@
 // Modul: audio/metering_service — Echtzeit-Metering Service mit Tauri Events
 use super::metering::{MeteringEngine, StripLevels};
-use log::{info, error};
+use super::pipewire;
+use log::{info, error, warn};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -28,6 +29,41 @@ impl MeteringService {
 
         let engine_clone = Arc::clone(&engine);
         let running_clone = Arc::clone(&running);
+
+        // Discover PipeWire Audio-Nodes beim Start
+        if let Ok(devices) = pipewire::list_audio_devices() {
+            info!("PipeWire Audio-Geräte gefunden: {}", devices.len());
+            for device in &devices {
+                info!(
+                    "  - {} (ID: {}, Typ: {}, Kanäle: {})",
+                    device.name, device.id, device.device_type, device.channels
+                );
+            }
+
+            // Standard-Strips für bekannte Input-Devices registrieren
+            if let Ok(mut eng) = engine.lock() {
+                for device in devices.iter().filter(|d| d.device_type == "input") {
+                    // Strip-ID aus Node-Namen ableiten
+                    let strip_id = if device.name.contains("analog") {
+                        "hw-mic-1".to_string()
+                    } else if device.name.contains("usb") {
+                        "hw-mic-2".to_string()
+                    } else {
+                        format!("hw-input-{}", device.id)
+                    };
+
+                    eng.register_strip(&strip_id);
+                    info!("Strip registriert: {} → {}", strip_id, device.name);
+                }
+            }
+        } else {
+            warn!("PipeWire Node-Discovery fehlgeschlagen, nutze Fallback-Strips");
+            // Fallback: Standard-Strips registrieren
+            if let Ok(mut eng) = engine.lock() {
+                eng.register_strip("hw-mic-1");
+                eng.register_strip("hw-mic-2");
+            }
+        }
 
         // Metering-Thread starten
         let thread_handle = thread::Builder::new()
@@ -61,10 +97,27 @@ impl MeteringService {
                 Vec::new()
             };
 
-            // Simuliere Audio-Daten für Demo (Phase 1)
-            // TODO Phase 2: Echte Audio-Daten aus PipeWire-Capture
+            // Phase 2b: Audio-Daten aus PipeWire-Capture
+            // TODO Phase 2c: Ersetze Simulation durch echte Capture
+            //
+            // Implementierung:
+            // 1. AudioCaptureManager.start_capture() für jeden registrierten Strip
+            // 2. Audio-Samples aus Ring-Buffer (Consumer) lesen
+            // 3. MeteringEngine.process_buffer() mit echten Samples füttern
+            //
+            // Für jetzt: Simulierte Daten für registrierte Strips
             if let Ok(mut eng) = engine.lock() {
-                simulate_audio_for_strips(&mut eng, &["hw-mic-1", "hw-mic-2", "virt-browser", "virt-spotify"]);
+                let registered_strips: Vec<String> = eng.get_levels()
+                    .iter()
+                    .map(|l| l.strip_id.clone())
+                    .collect();
+
+                if !registered_strips.is_empty() {
+                    simulate_audio_for_strips(
+                        &mut eng,
+                        &registered_strips.iter().map(|s| s.as_str()).collect::<Vec<_>>()
+                    );
+                }
             }
 
             // Events an Frontend senden
