@@ -44,7 +44,7 @@ export default function FxPanel({ onClose }: FxPanelProps) {
             FX-Chain
           </span>
           <span className="text-[6px] text-inox-muted">
-            (Phase 1: HPF + Gate)
+            (8 Module: HPF → Denoise → Gate → DeEsser → EQ → Comp → Lim → AutoGain)
           </span>
         </div>
         {/* Close Button */}
