@@ -381,17 +381,116 @@ pub fn remove_audio_link(source_id: &str, bus_id: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Alle Audio-Geräte aus PipeWire abfragen
+///
+/// Phase 2b: Nutzt pw-cli um alle Audio-Nodes zu listen
+pub fn list_audio_devices() -> Result<Vec<AudioDevice>, String> {
+    let output = std::process::Command::new("pw-cli")
+        .arg("list-objects")
+        .arg("Node")
+        .output()
+        .map_err(|e| format!("pw-cli konnte nicht ausgeführt werden: {}", e))?;
+
+    if !output.status.success() {
+        return Err("pw-cli list-objects fehlgeschlagen".to_string());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let devices = parse_pw_nodes(&stdout);
+
+    info!("PipeWire Nodes gefunden: {}", devices.len());
+    Ok(devices)
+}
+
+/// Parse pw-cli list-objects Output zu AudioDevice Liste
+fn parse_pw_nodes(output: &str) -> Vec<AudioDevice> {
+    let mut devices = Vec::new();
+    let mut current_id: Option<u32> = None;
+    let mut current_name = String::new();
+    let mut current_type = String::new();
+    let mut current_channels: u32 = 2; // Default Stereo
+
+    for line in output.lines() {
+        let trimmed = line.trim();
+
+        // Node ID extrahieren: "  id 42, ..."
+        if let Some(id_str) = trimmed.strip_prefix("id ") {
+            if let Some(id_part) = id_str.split(',').next() {
+                if let Ok(id) = id_part.trim().parse::<u32>() {
+                    current_id = Some(id);
+                }
+            }
+        }
+
+        // Name extrahieren: "    node.name = "alsa_input.pci-...""
+        if trimmed.contains("node.name") || trimmed.contains("media.name") {
+            if let Some(name_part) = trimmed.split('=').nth(1) {
+                current_name = name_part.trim().trim_matches('"').to_string();
+            }
+        }
+
+        // Typ extrahieren: "    media.class = "Audio/Source""
+        if trimmed.contains("media.class") {
+            if let Some(class_part) = trimmed.split('=').nth(1) {
+                let class = class_part.trim().trim_matches('"');
+                if class.contains("Source") || class.contains("Input") {
+                    current_type = "input".to_string();
+                } else if class.contains("Sink") || class.contains("Output") {
+                    current_type = "output".to_string();
+                }
+            }
+        }
+
+        // Channels extrahieren: "    audio.channels = 2"
+        if trimmed.contains("audio.channels") {
+            if let Some(ch_part) = trimmed.split('=').nth(1) {
+                if let Ok(ch) = ch_part.trim().parse::<u32>() {
+                    current_channels = ch;
+                }
+            }
+        }
+
+        // Am Ende eines Node-Blocks: AudioDevice erstellen
+        if trimmed.is_empty() && current_id.is_some() && !current_name.is_empty() {
+            devices.push(AudioDevice {
+                id: current_id.unwrap(),
+                name: current_name.clone(),
+                device_type: current_type.clone(),
+                channels: current_channels,
+            });
+
+            // Reset für nächsten Block
+            current_id = None;
+            current_name.clear();
+            current_type.clear();
+            current_channels = 2;
+        }
+    }
+
+    devices
+}
+
 /// Mapping: Logische Source-ID → PipeWire Port-Name
 ///
-/// Phase 2a: Hardcoded Mapping für bekannte Sources.
-/// Phase 2b TODO: Dynamische Node-Discovery über PipeWire Registry
+/// Phase 2b: Erweitert um dynamische Node-Discovery
 fn map_source_to_port(source_id: &str) -> Result<String, String> {
-    // Beispiel-Mapping (muss an reale PipeWire-Nodes angepasst werden)
+    // Zuerst versuchen, die Source über Node-Discovery zu finden
+    if let Ok(devices) = list_audio_devices() {
+        // Suche nach Source-ID in Node-Namen
+        for device in devices {
+            if device.device_type == "input" && device.name.contains(source_id) {
+                // Port-Namen konstruieren (Konvention: node_name:port_name)
+                return Ok(format!("{}:capture_FL", device.name));
+            }
+        }
+    }
+
+    // Fallback: Hardcoded Mapping für bekannte Sources
     let port = match source_id {
         "mic-1" => "alsa_input.pci-0000_00_1f.3.analog-stereo:capture_FL",
         "mic-2" => "alsa_input.usb-0000_00_14.0.analog-stereo:capture_FL",
         id if id.starts_with("app-") => {
-            // App-Audio: Format "app-browser" → "Firefox:output_FL" (würde Discovery benötigen)
+            // App-Audio: Suche in Application-Nodes
             return Err(format!("App-Audio Routing noch nicht implementiert: {}", id));
         }
         _ => return Err(format!("Unbekannte Source-ID: {}", source_id)),
@@ -400,12 +499,61 @@ fn map_source_to_port(source_id: &str) -> Result<String, String> {
     Ok(port.to_string())
 }
 
+/// Virtual Bus Nodes erstellen (inoX-Bus-A1 bis B2)
+///
+/// Phase 2b: Erstellt virtuelle Loopback-Nodes für jeden Bus
+/// Diese können dann als Routing-Ziele verwendet werden
+pub fn create_virtual_bus_nodes() -> Result<(), String> {
+    info!("Erstelle Virtual Bus Nodes...");
+
+    let buses = vec!["A1", "A2", "B1", "B2"];
+
+    for bus_id in buses {
+        // pw-loopback nutzen um virtuelle Nodes zu erstellen
+        // Format: pw-loopback -n "inoX-Bus-A1" -c 2
+        let bus_name = format!("inoX-Bus-{}", bus_id);
+
+        let output = std::process::Command::new("pw-loopback")
+            .arg("-n")
+            .arg(&bus_name)
+            .arg("-c")
+            .arg("2") // Stereo
+            .arg("--latency")
+            .arg("256/48000") // 256 Samples @ 48kHz
+            .spawn();
+
+        match output {
+            Ok(_) => info!("Virtual Bus Node erstellt: {}", bus_name),
+            Err(e) => {
+                error!("Fehler beim Erstellen von {}: {}", bus_name, e);
+                // Nicht abbrechen, weiter mit nächstem Bus
+            }
+        }
+    }
+
+    info!("Virtual Bus Nodes Setup abgeschlossen");
+    Ok(())
+}
+
+/// Virtual Bus Nodes stoppen
+pub fn destroy_virtual_bus_nodes() -> Result<(), String> {
+    info!("Stoppe Virtual Bus Nodes...");
+
+    // Alle pw-loopback Prozesse mit "inoX-Bus" im Namen beenden
+    let _ = std::process::Command::new("pkill")
+        .arg("-f")
+        .arg("pw-loopback.*inoX-Bus")
+        .output();
+
+    info!("Virtual Bus Nodes gestoppt");
+    Ok(())
+}
+
 /// Mapping: Bus-ID → PipeWire Port-Name
 ///
-/// Phase 2a: Placeholder — Busse müssen als virtuelle PipeWire Nodes existieren.
-/// Phase 2b TODO: Virtual Bus Nodes erstellen (z.B. "inoX-Bus-A1:input_FL")
+/// Phase 2b: Nutzt virtuelle Bus-Nodes
 fn map_bus_to_port(bus_id: &str) -> Result<String, String> {
-    // Virtual Bus Nodes müssten zuerst erstellt werden
+    // Virtual Bus Nodes werden beim Start erstellt
     let port = match bus_id {
         "A1" => "inoX-Bus-A1:input_FL",
         "A2" => "inoX-Bus-A2:input_FL",
@@ -521,5 +669,55 @@ mod tests {
         // Integration-Test: Nur mit echtem PipeWire und konfigurierten Nodes
         let result = remove_audio_link("mic-1", "A1");
         println!("remove_audio_link result: {:?}", result);
+    }
+
+    // --- Node-Discovery Tests ---
+
+    #[test]
+    #[ignore] // Benötigt laufendes PipeWire
+    fn test_list_audio_devices_integration() {
+        let result = list_audio_devices();
+        assert!(result.is_ok());
+        let devices = result.unwrap();
+        println!("Audio Devices gefunden: {}", devices.len());
+        for device in devices {
+            println!("  - {} ({}, {} Kanäle)", device.name, device.device_type, device.channels);
+        }
+    }
+
+    #[test]
+    fn test_parse_pw_nodes() {
+        let mock_output = r#"
+  id 42, type PipeWire:Interface:Node/3
+    node.name = "alsa_input.pci-0000_00_1f.3.analog-stereo"
+    media.class = "Audio/Source"
+    audio.channels = 2
+
+  id 43, type PipeWire:Interface:Node/3
+    node.name = "alsa_output.pci-0000_00_1f.3.analog-stereo"
+    media.class = "Audio/Sink"
+    audio.channels = 2
+"#;
+
+        let devices = parse_pw_nodes(mock_output);
+        assert_eq!(devices.len(), 2);
+        assert_eq!(devices[0].id, 42);
+        assert_eq!(devices[0].device_type, "input");
+        assert_eq!(devices[1].id, 43);
+        assert_eq!(devices[1].device_type, "output");
+    }
+
+    #[test]
+    #[ignore] // Benötigt laufendes PipeWire und Berechtigungen
+    fn test_create_virtual_bus_nodes_integration() {
+        let result = create_virtual_bus_nodes();
+        println!("create_virtual_bus_nodes result: {:?}", result);
+    }
+
+    #[test]
+    #[ignore] // Benötigt laufendes PipeWire und Berechtigungen
+    fn test_destroy_virtual_bus_nodes_integration() {
+        let result = destroy_virtual_bus_nodes();
+        println!("destroy_virtual_bus_nodes result: {:?}", result);
     }
 }

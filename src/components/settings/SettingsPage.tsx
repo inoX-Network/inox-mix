@@ -9,9 +9,10 @@ type SettingsCategory = 'audio' | 'recording' | 'bleeper' | 'ui' | 'system';
 
 /** Audio-Gerät aus PipeWire */
 interface AudioDevice {
-  id: string;
+  id: number;
   name: string;
-  type: 'input' | 'output';
+  device_type: 'input' | 'output';
+  channels: number;
 }
 
 /** Einstellungen-Seite mit Kategorien */
@@ -60,15 +61,12 @@ function SettingsPage(_props: SettingsPageProps) {
 
   const loadAudioDevices = async () => {
     try {
-      // TODO: Backend command implementieren
-      const mockDevices: AudioDevice[] = [
-        { id: 'hw:0,0', name: 'Built-in Audio', type: 'input' },
-        { id: 'hw:1,0', name: 'USB Microphone', type: 'input' },
-        { id: 'hw:0,1', name: 'Built-in Speakers', type: 'output' },
-      ];
-      setAudioDevices(mockDevices);
+      const devices = await invoke<AudioDevice[]>('get_audio_devices');
+      setAudioDevices(devices);
     } catch (err) {
       console.error('Fehler beim Laden der Audio-Geräte:', err);
+      // Fallback: Leere Liste
+      setAudioDevices([]);
     }
   };
 
@@ -233,18 +231,28 @@ function SettingsPage(_props: SettingsPageProps) {
                 Audio-Geräte
               </label>
               <div className="space-y-2">
-                {audioDevices.map((device) => (
-                  <div
-                    key={device.id}
-                    className="flex items-center justify-between px-3 py-2 bg-inox-panel rounded"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-[8px]">{device.type === 'input' ? '🎤' : '🔊'}</span>
-                      <span className="text-[5px] text-inox-dim">{device.name}</span>
-                    </div>
-                    <span className="text-[4.5px] text-inox-muted font-mono">{device.id}</span>
+                {audioDevices.length === 0 ? (
+                  <div className="text-center py-4 text-[5px] text-inox-muted">
+                    Keine Audio-Geräte gefunden. Stelle sicher, dass PipeWire läuft.
                   </div>
-                ))}
+                ) : (
+                  audioDevices.map((device) => (
+                    <div
+                      key={device.id}
+                      className="flex items-center justify-between px-3 py-2 bg-inox-panel rounded"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-[8px]">{device.device_type === 'input' ? '🎤' : '🔊'}</span>
+                        <div>
+                          <div className="text-[5px] text-inox-dim">{device.name}</div>
+                          <div className="text-[4px] text-inox-muted">
+                            {device.channels} Kanäle · Node #{device.id}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

@@ -24,7 +24,7 @@ use audio::bus::{BusManager, OutputBus};
 use audio::mixer::{InputStrip, MixerState};
 use audio::routing::{RoutingManager, RoutingEntry};
 use audio::master::{MasterManager, MasterState};
-use audio::pipewire as pw;
+use audio::pipewire::{self as pw, AudioDevice};
 use config::database::Database;
 use config::ConfigManager;
 use fx::{FxChain, FxModuleInfo, FxModuleType};
@@ -81,6 +81,12 @@ fn get_system_info() -> Result<serde_json::Value, String> {
         "os": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
     }))
+}
+
+/// Alle Audio-Geräte aus PipeWire abrufen
+#[tauri::command]
+fn get_audio_devices() -> Result<Vec<AudioDevice>, String> {
+    pw::list_audio_devices()
 }
 
 /// Config-Wert aus der Datenbank lesen
@@ -664,7 +670,13 @@ fn main() {
 
             // 3. PipeWire-Verfügbarkeit prüfen
             match pw::check_pipewire_available() {
-                Ok(()) => info!("PipeWire verfügbar"),
+                Ok(()) => {
+                    info!("PipeWire verfügbar");
+                    // Virtual Bus Nodes erstellen
+                    if let Err(e) = pw::create_virtual_bus_nodes() {
+                        warn!("Virtual Bus Nodes konnten nicht erstellt werden: {}", e);
+                    }
+                }
                 Err(msg) => {
                     warn!("PipeWire-Warnung: {}", msg);
                     // Warnung ans Frontend senden statt abzubrechen
@@ -744,6 +756,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_system_info,
+            get_audio_devices,
             get_config,
             set_config,
             export_config,
