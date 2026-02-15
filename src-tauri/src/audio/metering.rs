@@ -83,7 +83,8 @@ impl MeteringEngine {
 
     /// Strip für Metering registrieren
     pub fn register_strip(&mut self, strip_id: &str) {
-        self.meters.entry(strip_id.to_string())
+        self.meters
+            .entry(strip_id.to_string())
             .or_insert_with(MeterState::new);
     }
 
@@ -97,7 +98,9 @@ impl MeteringEngine {
     /// Erwartet interleaved Stereo-Samples (L, R, L, R, ...).
     /// Bei Mono-Signal wird der gleiche Wert für beide Kanäle verwendet.
     pub fn process_buffer(&mut self, strip_id: &str, samples: &[f32], channels: u32) {
-        let meter = self.meters.entry(strip_id.to_string())
+        let meter = self
+            .meters
+            .entry(strip_id.to_string())
             .or_insert_with(MeterState::new);
 
         if samples.is_empty() {
@@ -118,16 +121,17 @@ impl MeteringEngine {
 
     /// Aktuelle Messwerte für alle registrierten Strips abrufen
     pub fn get_levels(&self) -> Vec<StripLevels> {
-        self.meters.iter().map(|(id, meter)| {
-            StripLevels {
+        self.meters
+            .iter()
+            .map(|(id, meter)| StripLevels {
                 strip_id: id.clone(),
                 peak_l: linear_to_db(meter.held_peak_l),
                 peak_r: linear_to_db(meter.held_peak_r),
                 rms_l: linear_to_db(meter.rms_l),
                 rms_r: linear_to_db(meter.rms_r),
                 clipping: meter.clipping,
-            }
-        }).collect()
+            })
+            .collect()
     }
 
     /// Messwerte für einen bestimmten Strip abrufen
@@ -156,7 +160,11 @@ impl MeteringEngine {
 }
 
 /// Peak und RMS für einen Kanal aus interleaved Samples berechnen
-fn calculate_peak_rms_channel(samples: &[f32], channel_offset: usize, channel_count: usize) -> (f32, f32) {
+fn calculate_peak_rms_channel(
+    samples: &[f32],
+    channel_offset: usize,
+    channel_count: usize,
+) -> (f32, f32) {
     let mut peak: f32 = 0.0;
     let mut sum_squares: f32 = 0.0;
     let mut count: usize = 0;
@@ -300,16 +308,19 @@ mod tests {
         engine.register_strip("test");
 
         // Sinus-ähnliches Signal: 0.5 Amplitude
-        let signal: Vec<f32> = (0..256).map(|i| {
-            0.5 * (2.0 * std::f32::consts::PI * i as f32 / 256.0).sin()
-        }).collect();
+        let signal: Vec<f32> = (0..256)
+            .map(|i| 0.5 * (2.0 * std::f32::consts::PI * i as f32 / 256.0).sin())
+            .collect();
 
         engine.process_buffer("test", &signal, 1);
 
         let levels = engine.get_strip_levels("test").unwrap();
         // Peak sollte bei ca. 0.5 liegen → ca. -6 dB
-        assert!(levels.peak_l > -7.0 && levels.peak_l < -5.0,
-            "Peak sollte ca. -6 dB sein, war: {}", levels.peak_l);
+        assert!(
+            levels.peak_l > -7.0 && levels.peak_l < -5.0,
+            "Peak sollte ca. -6 dB sein, war: {}",
+            levels.peak_l
+        );
         // RMS sollte niedriger als Peak sein
         assert!(levels.rms_l < levels.peak_l);
         assert!(!levels.clipping);
@@ -323,7 +334,7 @@ mod tests {
         // Interleaved Stereo: L=0.5, R=0.25
         let mut stereo = Vec::with_capacity(512);
         for _ in 0..256 {
-            stereo.push(0.5_f32);  // L
+            stereo.push(0.5_f32); // L
             stereo.push(0.25_f32); // R
         }
 
@@ -331,11 +342,17 @@ mod tests {
 
         let levels = engine.get_strip_levels("test").unwrap();
         // Links: 0.5 → ca. -6 dB
-        assert!(levels.peak_l > -7.0 && levels.peak_l < -5.0,
-            "Peak L sollte ca. -6 dB sein, war: {}", levels.peak_l);
+        assert!(
+            levels.peak_l > -7.0 && levels.peak_l < -5.0,
+            "Peak L sollte ca. -6 dB sein, war: {}",
+            levels.peak_l
+        );
         // Rechts: 0.25 → ca. -12 dB
-        assert!(levels.peak_r > -13.0 && levels.peak_r < -11.0,
-            "Peak R sollte ca. -12 dB sein, war: {}", levels.peak_r);
+        assert!(
+            levels.peak_r > -13.0 && levels.peak_r < -11.0,
+            "Peak R sollte ca. -12 dB sein, war: {}",
+            levels.peak_r
+        );
     }
 
     #[test]

@@ -40,7 +40,7 @@ impl DuckingEngine {
 
         Self {
             params: DuckingParams {
-                amount_db: -15.0,  // Standard: -15dB Reduktion
+                amount_db: -15.0, // Standard: -15dB Reduktion
                 attack_ms,
                 release_ms,
                 threshold_db: -30.0, // -30dB Threshold
@@ -114,7 +114,7 @@ impl DuckingEngine {
         for sample in audio.iter_mut() {
             // Attack (wenn Envelope sinkt) oder Release (wenn Envelope steigt)
             let coeff = if target_envelope < self.envelope {
-                self.attack_coeff  // Attack (schneller)
+                self.attack_coeff // Attack (schneller)
             } else {
                 self.release_coeff // Release (langsamer)
             };
@@ -243,7 +243,10 @@ mod tests {
         engine.process(&mut audio, &sidechain);
 
         // Audio sollte NICHT geduckt sein (envelope bleibt bei 1.0)
-        assert!((audio[999] - 1.0).abs() < 0.01, "Audio sollte nicht geduckt sein bei leisem Sidechain");
+        assert!(
+            (audio[999] - 1.0).abs() < 0.01,
+            "Audio sollte nicht geduckt sein bei leisem Sidechain"
+        );
     }
 
     #[test]

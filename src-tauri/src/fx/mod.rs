@@ -7,14 +7,14 @@
 // Phase 2: Weitere 6 Module (TODO)
 
 // Sub-Module (alle 8 Module)
-pub mod hpf;
-pub mod gate;
-pub mod denoise;
-pub mod deesser;
-pub mod eq;
-pub mod compressor;
-pub mod limiter;
 pub mod autogain;
+pub mod compressor;
+pub mod deesser;
+pub mod denoise;
+pub mod eq;
+pub mod gate;
+pub mod hpf;
+pub mod limiter;
 
 use serde::{Deserialize, Serialize};
 
@@ -209,7 +209,12 @@ impl FxChain {
     }
 
     /// Parameter setzen
-    pub fn set_param(&mut self, module_type: FxModuleType, param_name: &str, value: f32) -> Result<(), String> {
+    pub fn set_param(
+        &mut self,
+        module_type: FxModuleType,
+        param_name: &str,
+        value: f32,
+    ) -> Result<(), String> {
         match module_type {
             FxModuleType::Hpf => {
                 if param_name == "freq" {
@@ -219,53 +224,55 @@ impl FxChain {
                     Err(format!("Unbekannter Parameter: {}", param_name))
                 }
             }
-            FxModuleType::Denoise => {
-                match param_name {
-                    "threshold" => self.denoise.set_threshold(value),
-                    _ => Err(format!("Unbekannter Parameter: {}", param_name)),
+            FxModuleType::Denoise => match param_name {
+                "threshold" => self.denoise.set_threshold(value),
+                _ => Err(format!("Unbekannter Parameter: {}", param_name)),
+            },
+            FxModuleType::Gate => match param_name {
+                "threshold" => {
+                    self.gate.set_threshold(value);
+                    Ok(())
                 }
-            }
-            FxModuleType::Gate => {
-                match param_name {
-                    "threshold" => { self.gate.set_threshold(value); Ok(()) },
-                    "attack" => { self.gate.set_attack(value); Ok(()) },
-                    "hold" => { self.gate.set_hold(value); Ok(()) },
-                    "release" => { self.gate.set_release(value); Ok(()) },
-                    _ => Err(format!("Unbekannter Parameter: {}", param_name)),
+                "attack" => {
+                    self.gate.set_attack(value);
+                    Ok(())
                 }
-            }
-            FxModuleType::DeEsser => {
-                match param_name {
-                    "threshold" => self.deesser.set_threshold(value),
-                    _ => Err(format!("Unbekannter Parameter: {}", param_name)),
+                "hold" => {
+                    self.gate.set_hold(value);
+                    Ok(())
                 }
-            }
+                "release" => {
+                    self.gate.set_release(value);
+                    Ok(())
+                }
+                _ => Err(format!("Unbekannter Parameter: {}", param_name)),
+            },
+            FxModuleType::DeEsser => match param_name {
+                "threshold" => self.deesser.set_threshold(value),
+                _ => Err(format!("Unbekannter Parameter: {}", param_name)),
+            },
             FxModuleType::Eq => {
                 // EQ hat set_low(), set_mid(), set_high() - keine einzelnen Parameter
-                Err(format!("EQ-Parameter müssen über set_low/mid/high gesetzt werden"))
+                Err(format!(
+                    "EQ-Parameter müssen über set_low/mid/high gesetzt werden"
+                ))
             }
-            FxModuleType::Compressor => {
-                match param_name {
-                    "threshold" => self.compressor.set_threshold(value),
-                    _ => Err(format!("Unbekannter Parameter: {}", param_name)),
-                }
-            }
-            FxModuleType::Limiter => {
-                match param_name {
-                    "ceiling" => self.limiter.set_ceiling(value),
-                    "release" => self.limiter.set_release(value),
-                    _ => Err(format!("Unbekannter Parameter: {}", param_name)),
-                }
-            }
-            FxModuleType::AutoGain => {
-                match param_name {
-                    "target_level" => self.autogain.set_target_level(value),
-                    "window" => self.autogain.set_window(value),
-                    "attack" => self.autogain.set_attack(value),
-                    "release" => self.autogain.set_release(value),
-                    _ => Err(format!("Unbekannter Parameter: {}", param_name)),
-                }
-            }
+            FxModuleType::Compressor => match param_name {
+                "threshold" => self.compressor.set_threshold(value),
+                _ => Err(format!("Unbekannter Parameter: {}", param_name)),
+            },
+            FxModuleType::Limiter => match param_name {
+                "ceiling" => self.limiter.set_ceiling(value),
+                "release" => self.limiter.set_release(value),
+                _ => Err(format!("Unbekannter Parameter: {}", param_name)),
+            },
+            FxModuleType::AutoGain => match param_name {
+                "target_level" => self.autogain.set_target_level(value),
+                "window" => self.autogain.set_window(value),
+                "attack" => self.autogain.set_attack(value),
+                "release" => self.autogain.set_release(value),
+                _ => Err(format!("Unbekannter Parameter: {}", param_name)),
+            },
         }
     }
 

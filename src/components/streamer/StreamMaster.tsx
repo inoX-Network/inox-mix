@@ -22,8 +22,8 @@ function StreamMaster({
   const [volumeDb, setVolumeDb] = useState(initialVolume);
   const [muted, setMuted] = useState(initialMuted);
   const [recording, setRecording] = useState(initialRecording);
-  const [peak, setPeak] = useState(-60); // TODO: Aus Metering-Hook
-  const [rms, setRms] = useState(-60); // TODO: Aus Metering-Hook
+  const [peak] = useState(-60); // TODO: Aus Metering-Hook
+  const [rms] = useState(-60); // TODO: Aus Metering-Hook
 
   const handleVolumeChange = async (newDb: number) => {
     setVolumeDb(newDb);

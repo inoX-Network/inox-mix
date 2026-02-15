@@ -1,9 +1,9 @@
 // Modul: streamer — Streamer-spezifische Features (Ducking, Bleeper, Voice FX, Soundboard)
 
-pub mod ducking;
 pub mod bleeper;
-pub mod voice_fx;
+pub mod ducking;
 pub mod soundboard;
+pub mod voice_fx;
 
 /// Streamer-Modul koordiniert alle Stream-bezogenen Funktionen
 #[derive(Debug)]

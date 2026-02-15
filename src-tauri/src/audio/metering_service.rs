@@ -1,13 +1,13 @@
 // Modul: audio/metering_service — Echtzeit-Metering Service mit Tauri Events
+use super::cpal_capture::{AudioSample, CpalCaptureManager};
 use super::metering::MeteringEngine;
 use super::pipewire;
-use super::cpal_capture::{CpalCaptureManager, AudioSample};
-use log::{info, error, warn};
-use std::sync::{Arc, Mutex};
+use log::{error, info, warn};
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use std::collections::VecDeque;
 use tauri::{AppHandle, Emitter};
 
 /// Metering-Update-Intervall (16ms ≈ 60fps)
@@ -53,7 +53,10 @@ impl MeteringService {
                 let input_count = devices.iter().filter(|d| d.device_type == "input").count();
                 let output_count = devices.iter().filter(|d| d.device_type == "output").count();
 
-                info!("✅ PipeWire-Nodes gefunden: {} Input, {} Output", input_count, output_count);
+                info!(
+                    "✅ PipeWire-Nodes gefunden: {} Input, {} Output",
+                    input_count, output_count
+                );
 
                 if let Ok(mut eng) = engine.lock() {
                     let mut hw_mic_counter = 1;
@@ -73,11 +76,15 @@ impl MeteringService {
                             };
                             hw_mic_counter += 1;
                             id
-                        } else if device.name.contains("application") || device.name.contains("client") {
+                        } else if device.name.contains("application")
+                            || device.name.contains("client")
+                        {
                             // Virtual-Input (Application-Stream)
                             let app_name = extract_app_name(&device.name);
                             format!("virt-{}", app_name)
-                        } else if device.name.contains("loopback") || device.name.contains("monitor") {
+                        } else if device.name.contains("loopback")
+                            || device.name.contains("monitor")
+                        {
                             // Loopback/Monitor-Device
                             format!("virt-loop-{}", virt_counter)
                         } else {
@@ -145,7 +152,10 @@ impl MeteringService {
                     if let Ok(device) = cpal_manager.get_default_input_device() {
                         match cpal_manager.start_capture(device, "default-input") {
                             Ok(buffer) => {
-                                audio_buffers_cpal.lock().unwrap().insert("default-input".to_string(), buffer);
+                                audio_buffers_cpal
+                                    .lock()
+                                    .unwrap()
+                                    .insert("default-input".to_string(), buffer);
                                 info!("🎤 Default Input-Device Capture gestartet");
 
                                 // Strip für Default-Input registrieren
@@ -183,7 +193,7 @@ impl MeteringService {
                     running_clone,
                     use_real_audio_clone,
                     audio_buffers_clone,
-                    app_handle
+                    app_handle,
                 );
             })
             .ok();
@@ -205,7 +215,9 @@ impl MeteringService {
         engine: Arc<Mutex<MeteringEngine>>,
         running: Arc<AtomicBool>,
         use_real_audio: Arc<AtomicBool>,
-        audio_buffers: Arc<Mutex<std::collections::HashMap<String, Arc<Mutex<VecDeque<AudioSample>>>>>>,
+        audio_buffers: Arc<
+            Mutex<std::collections::HashMap<String, Arc<Mutex<VecDeque<AudioSample>>>>>,
+        >,
         app_handle: AppHandle,
     ) {
         while running.load(Ordering::Relaxed) {
@@ -248,7 +260,8 @@ impl MeteringService {
             } else {
                 // ⚠️  SIMULATION (Fallback)
                 if let Ok(mut eng) = engine.lock() {
-                    let registered_strips: Vec<String> = eng.get_levels()
+                    let registered_strips: Vec<String> = eng
+                        .get_levels()
                         .iter()
                         .map(|l| l.strip_id.clone())
                         .collect();
@@ -256,7 +269,10 @@ impl MeteringService {
                     if !registered_strips.is_empty() {
                         simulate_audio_for_strips(
                             &mut eng,
-                            &registered_strips.iter().map(|s| s.as_str()).collect::<Vec<_>>()
+                            &registered_strips
+                                .iter()
+                                .map(|s| s.as_str())
+                                .collect::<Vec<_>>(),
                         );
                     }
                 }
@@ -375,9 +391,9 @@ fn simulate_audio_for_strips(engine: &mut MeteringEngine, strip_ids: &[&str]) {
 
         // Frequenz variiert je nach Strip für unterscheidbare Signale
         let freq_l = if strip_id.contains("mic-1") {
-            440.0  // A4
+            440.0 // A4
         } else if strip_id.contains("mic-2") {
-            554.37  // C#5
+            554.37 // C#5
         } else {
             rng.gen_range(200.0..800.0)
         };
@@ -387,7 +403,7 @@ fn simulate_audio_for_strips(engine: &mut MeteringEngine, strip_ids: &[&str]) {
         // Sinusförmiges Signal generieren (256 Samples @ 48kHz ≈ 5.3ms)
         let mut samples = Vec::with_capacity(512);
         for i in 0..256 {
-            let t = i as f32 / 48000.0;  // Zeit in Sekunden
+            let t = i as f32 / 48000.0; // Zeit in Sekunden
             let sample_l = amplitude * (2.0 * std::f32::consts::PI * freq_l * t).sin();
             let sample_r = amplitude * 0.85 * (2.0 * std::f32::consts::PI * freq_r * t).sin();
             samples.push(sample_l);

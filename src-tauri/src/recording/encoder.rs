@@ -4,7 +4,7 @@
 // FLAC: Nutzt WAV-Zwischenspeicherung + flac CLI für Konvertierung
 // SPEC: 11-recording
 
-use hound::{WavWriter, WavSpec, SampleFormat};
+use hound::{SampleFormat, WavSpec, WavWriter};
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -28,9 +28,9 @@ impl WavEncoder {
     /// Neuen WAV-Encoder erstellen
     pub fn new(path: PathBuf) -> Result<Self, String> {
         let spec = WavSpec {
-            channels: 2,              // Stereo
-            sample_rate: 48000,       // 48 kHz
-            bits_per_sample: 32,      // 32-bit float
+            channels: 2,         // Stereo
+            sample_rate: 48000,  // 48 kHz
+            bits_per_sample: 32, // 32-bit float
             sample_format: SampleFormat::Float,
         };
 
@@ -55,11 +55,14 @@ impl AudioEncoder for WavEncoder {
     }
 
     fn write_samples(&mut self, samples: &[f32]) -> Result<(), String> {
-        let writer = self.writer.as_mut()
+        let writer = self
+            .writer
+            .as_mut()
             .ok_or_else(|| "WAV-Encoder bereits finalisiert".to_string())?;
 
         for &sample in samples {
-            writer.write_sample(sample)
+            writer
+                .write_sample(sample)
                 .map_err(|e| format!("WAV-Encoder Schreibfehler: {}", e))?;
         }
 
@@ -68,7 +71,8 @@ impl AudioEncoder for WavEncoder {
 
     fn finalize(&mut self) -> Result<(), String> {
         if let Some(writer) = self.writer.take() {
-            writer.finalize()
+            writer
+                .finalize()
                 .map_err(|e| format!("WAV-Encoder Finalisierung fehlgeschlagen: {}", e))?;
         }
         Ok(())
@@ -120,11 +124,15 @@ impl AudioEncoder for FlacEncoder {
         let temp_wav = self.wav_encoder.path();
 
         // FLAC-Konvertierung via CLI (falls `flac` installiert)
-        log::info!("Konvertiere WAV → FLAC: {:?} → {:?}", temp_wav, self.flac_path);
+        log::info!(
+            "Konvertiere WAV → FLAC: {:?} → {:?}",
+            temp_wav,
+            self.flac_path
+        );
 
         let output = Command::new("flac")
-            .arg("--silent")                // Keine Fortschritts-Ausgabe
-            .arg("--best")                  // Maximale Kompression
+            .arg("--silent") // Keine Fortschritts-Ausgabe
+            .arg("--best") // Maximale Kompression
             .arg("--output-name")
             .arg(&self.flac_path)
             .arg(temp_wav)
@@ -149,7 +157,10 @@ impl AudioEncoder for FlacEncoder {
                 std::fs::rename(temp_wav, &fallback_path)
                     .map_err(|e| format!("Umbenennung fehlgeschlagen: {}", e))?;
 
-                log::warn!("FLAC CLI nicht installiert, WAV-Datei gespeichert: {:?}", fallback_path);
+                log::warn!(
+                    "FLAC CLI nicht installiert, WAV-Datei gespeichert: {:?}",
+                    fallback_path
+                );
                 Err("FLAC-Encoding fehlgeschlagen: flac CLI nicht installiert (Datei als WAV gespeichert)".to_string())
             }
         }

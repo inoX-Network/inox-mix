@@ -20,7 +20,12 @@ struct BiquadState {
 
 impl Default for BiquadState {
     fn default() -> Self {
-        Self { x1: 0.0, x2: 0.0, y1: 0.0, y2: 0.0 }
+        Self {
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
+        }
     }
 }
 
@@ -96,7 +101,8 @@ impl HpfModule {
     #[inline]
     fn process_sample(&self, input: f32, state: &mut BiquadState) -> f32 {
         let output = self.a0 * input + self.a1 * state.x1 + self.a2 * state.x2
-            - self.b1 * state.y1 - self.b2 * state.y2;
+            - self.b1 * state.y1
+            - self.b2 * state.y2;
 
         // State update
         state.x2 = state.x1;
@@ -121,7 +127,8 @@ impl AudioProcessor for HpfModule {
             // L-Kanal
             let input_l = buffer_l[i];
             let output_l = a0 * input_l + a1 * self.state_l.x1 + a2 * self.state_l.x2
-                - b1 * self.state_l.y1 - b2 * self.state_l.y2;
+                - b1 * self.state_l.y1
+                - b2 * self.state_l.y2;
             self.state_l.x2 = self.state_l.x1;
             self.state_l.x1 = input_l;
             self.state_l.y2 = self.state_l.y1;
@@ -131,7 +138,8 @@ impl AudioProcessor for HpfModule {
             // R-Kanal
             let input_r = buffer_r[i];
             let output_r = a0 * input_r + a1 * self.state_r.x1 + a2 * self.state_r.x2
-                - b1 * self.state_r.y1 - b2 * self.state_r.y2;
+                - b1 * self.state_r.y1
+                - b2 * self.state_r.y2;
             self.state_r.x2 = self.state_r.x1;
             self.state_r.x1 = input_r;
             self.state_r.y2 = self.state_r.y1;
@@ -217,7 +225,10 @@ mod tests {
         let output_rms = rms(&buffer_l);
 
         // Signal unter Cutoff sollte gedämpft sein
-        assert!(output_rms < input_rms * 0.5, "HPF sollte tiefe Frequenzen dämpfen");
+        assert!(
+            output_rms < input_rms * 0.5,
+            "HPF sollte tiefe Frequenzen dämpfen"
+        );
     }
 
     #[test]
@@ -237,7 +248,10 @@ mod tests {
         let output_rms = rms(&buffer_l);
 
         // Signal über Cutoff sollte weitgehend unverändert sein
-        assert!((output_rms - input_rms).abs() < 0.1, "HPF sollte hohe Frequenzen passieren lassen");
+        assert!(
+            (output_rms - input_rms).abs() < 0.1,
+            "HPF sollte hohe Frequenzen passieren lassen"
+        );
     }
 
     #[test]

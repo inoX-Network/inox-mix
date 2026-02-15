@@ -25,7 +25,7 @@ pub struct MasterState {
 impl Default for MasterState {
     fn default() -> Self {
         Self {
-            volume_db: 0.0,          // 0 dB (Unity Gain)
+            volume_db: 0.0,           // 0 dB (Unity Gain)
             limiter_ceiling_db: -0.1, // -0.1 dB (leicht unter 0 dB)
             dim: false,
             mono: false,
@@ -194,7 +194,9 @@ mod tests {
         // Zu niedrig
         let result = manager.set_volume(-100.0);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("außerhalb des gültigen Bereichs"));
+        assert!(result
+            .unwrap_err()
+            .contains("außerhalb des gültigen Bereichs"));
 
         // Zu hoch
         let result = manager.set_volume(20.0);

@@ -1,6 +1,6 @@
 // Modul: audio/bus — Output-Busse (A1/A2 physisch, B1/B2 virtuell)
-use serde::{Deserialize, Serialize};
 use log::info;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Minimale Lautstärke in dB
@@ -108,7 +108,9 @@ impl BusManager {
 
     /// Lautstärke eines Bus setzen (in dB)
     pub fn set_volume(&mut self, bus_id: &str, volume_db: f32) -> Result<(), String> {
-        let bus = self.buses.get_mut(bus_id)
+        let bus = self
+            .buses
+            .get_mut(bus_id)
             .ok_or_else(|| format!("Bus '{}' nicht gefunden", bus_id))?;
 
         bus.volume_db = volume_db.clamp(MIN_VOLUME_DB, MAX_VOLUME_DB);
@@ -117,7 +119,9 @@ impl BusManager {
 
     /// Bus stumm schalten / Stummschaltung aufheben
     pub fn set_mute(&mut self, bus_id: &str, muted: bool) -> Result<(), String> {
-        let bus = self.buses.get_mut(bus_id)
+        let bus = self
+            .buses
+            .get_mut(bus_id)
             .ok_or_else(|| format!("Bus '{}' nicht gefunden", bus_id))?;
 
         bus.muted = muted;
@@ -126,7 +130,9 @@ impl BusManager {
 
     /// Recording für einen Bus aktivieren/deaktivieren
     pub fn set_recording(&mut self, bus_id: &str, recording: bool) -> Result<(), String> {
-        let bus = self.buses.get_mut(bus_id)
+        let bus = self
+            .buses
+            .get_mut(bus_id)
             .ok_or_else(|| format!("Bus '{}' nicht gefunden", bus_id))?;
 
         bus.recording = recording;

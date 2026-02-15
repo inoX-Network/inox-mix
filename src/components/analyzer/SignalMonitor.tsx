@@ -17,7 +17,7 @@ const ORANGE = '#ff8c00';
  * - Welle 1+2: Cyan (Hardware Inputs)
  * - Welle 3+4: Orange (Virtual Inputs)
  */
-function SignalMonitor({ levels, compact = false }: SignalMonitorProps) {
+function SignalMonitor({ levels: _levels, compact = false }: SignalMonitorProps) {
   return (
     <div
       className={`bg-inox-panel border border-[rgba(255,255,255,0.05)] rounded-[5px] ${

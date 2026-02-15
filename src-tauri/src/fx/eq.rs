@@ -19,7 +19,12 @@ struct BiquadState {
 
 impl Default for BiquadState {
     fn default() -> Self {
-        Self { x1: 0.0, x2: 0.0, y1: 0.0, y2: 0.0 }
+        Self {
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
+        }
     }
 }
 
@@ -80,7 +85,8 @@ impl EqBand {
     #[inline]
     fn process_sample(&self, input: f32, state: &mut BiquadState) -> f32 {
         let output = self.a0 * input + self.a1 * state.x1 + self.a2 * state.x2
-            - self.b1 * state.y1 - self.b2 * state.y2;
+            - self.b1 * state.y1
+            - self.b2 * state.y2;
 
         // State update
         state.x2 = state.x1;
@@ -111,9 +117,9 @@ impl EqModule {
     /// Neues EQ-Modul mit Standard-Einstellungen
     pub fn new(_sample_rate: f32) -> Self {
         Self {
-            low: EqBand::new(80.0, 0.0, 1.0),      // 80 Hz, 0 dB, Q=1.0
-            mid: EqBand::new(1000.0, 0.0, 1.0),    // 1 kHz, 0 dB, Q=1.0
-            high: EqBand::new(8000.0, 0.0, 1.0),   // 8 kHz, 0 dB, Q=1.0
+            low: EqBand::new(80.0, 0.0, 1.0),    // 80 Hz, 0 dB, Q=1.0
+            mid: EqBand::new(1000.0, 0.0, 1.0),  // 1 kHz, 0 dB, Q=1.0
+            high: EqBand::new(8000.0, 0.0, 1.0), // 8 kHz, 0 dB, Q=1.0
             bypassed: false,
             low_state_l: BiquadState::default(),
             low_state_r: BiquadState::default(),
@@ -195,8 +201,12 @@ impl AudioProcessor for EqModule {
             buffer_r[i] = self.mid.process_sample(buffer_r[i], &mut self.mid_state_r);
 
             // High Band
-            buffer_l[i] = self.high.process_sample(buffer_l[i], &mut self.high_state_l);
-            buffer_r[i] = self.high.process_sample(buffer_r[i], &mut self.high_state_r);
+            buffer_l[i] = self
+                .high
+                .process_sample(buffer_l[i], &mut self.high_state_l);
+            buffer_r[i] = self
+                .high
+                .process_sample(buffer_r[i], &mut self.high_state_r);
         }
     }
 

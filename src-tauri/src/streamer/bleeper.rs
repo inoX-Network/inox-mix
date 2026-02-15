@@ -227,7 +227,10 @@ mod tests {
         assert_ne!(sample2, 0.0, "Noise sollte nicht 0.0 sein");
 
         // Samples sollten unterschiedlich sein (statistisch sehr wahrscheinlich)
-        assert_ne!(sample1, sample2, "Noise-Samples sollten unterschiedlich sein");
+        assert_ne!(
+            sample1, sample2,
+            "Noise-Samples sollten unterschiedlich sein"
+        );
     }
 
     #[test]
@@ -275,16 +278,28 @@ mod tests {
 
         // Tone clamping testen
         engine.set_tone(5000.0);
-        assert_eq!(engine.tone_hz, 2000.0, "Tone sollte auf 2000Hz geclamppt sein");
+        assert_eq!(
+            engine.tone_hz, 2000.0,
+            "Tone sollte auf 2000Hz geclamppt sein"
+        );
 
         engine.set_tone(100.0);
-        assert_eq!(engine.tone_hz, 200.0, "Tone sollte auf 200Hz geclamppt sein");
+        assert_eq!(
+            engine.tone_hz, 200.0,
+            "Tone sollte auf 200Hz geclamppt sein"
+        );
 
         // Volume clamping testen
         engine.set_volume(10.0);
-        assert_eq!(engine.volume_db, 0.0, "Volume sollte auf 0dB geclamppt sein");
+        assert_eq!(
+            engine.volume_db, 0.0,
+            "Volume sollte auf 0dB geclamppt sein"
+        );
 
         engine.set_volume(-50.0);
-        assert_eq!(engine.volume_db, -30.0, "Volume sollte auf -30dB geclamppt sein");
+        assert_eq!(
+            engine.volume_db, -30.0,
+            "Volume sollte auf -30dB geclamppt sein"
+        );
     }
 }

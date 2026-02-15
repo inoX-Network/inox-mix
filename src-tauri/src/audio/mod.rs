@@ -1,17 +1,17 @@
 // Modul: audio — Audio-Engine Verwaltung (PipeWire, Mixer, Metering)
 
-pub mod pipewire;
+pub mod bus;
 pub mod capture;
 pub mod cpal_capture;
-pub mod mixer;
+pub mod master;
 pub mod metering;
 pub mod metering_service;
-pub mod bus;
+pub mod mixer;
+pub mod pipewire;
 pub mod routing;
-pub mod master;
 
 use self::pipewire::{PipeWireSession, PipeWireStatus};
-use log::{info, error};
+use log::{error, info};
 
 /// Zentrale Audio-Engine die alle Audio-Subsysteme koordiniert
 pub struct AudioEngine {

@@ -1,7 +1,10 @@
 // Modul: audio/pipewire — PipeWire-Session und Node-Verwaltung
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
-use log::{info, error, warn};
-use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use std::thread;
 
 /// Standard Sample-Rate als Fallback (Hz)
@@ -97,7 +100,8 @@ impl PipeWireSession {
         // Kurz warten und Status prüfen
         thread::sleep(std::time::Duration::from_millis(PW_CONNECT_WAIT_MS));
 
-        let current_status = status.lock()
+        let current_status = status
+            .lock()
             .map_err(|e| format!("Mutex-Fehler: {}", e))?
             .clone();
 
@@ -118,10 +122,7 @@ impl PipeWireSession {
     }
 
     /// PipeWire MainLoop ausführen (läuft in eigenem Thread)
-    fn run_mainloop(
-        status: Arc<Mutex<PipeWireStatus>>,
-        running: Arc<AtomicBool>,
-    ) {
+    fn run_mainloop(status: Arc<Mutex<PipeWireStatus>>, running: Arc<AtomicBool>) {
         // MainLoop erstellen
         let mainloop = match pipewire::main_loop::MainLoop::new(None) {
             Ok(ml) => ml,
@@ -174,7 +175,8 @@ impl PipeWireSession {
 
     /// Aktuellen Verbindungsstatus abfragen
     pub fn status(&self) -> PipeWireStatus {
-        self.status.lock()
+        self.status
+            .lock()
             .map(|s| s.clone())
             .unwrap_or(PipeWireStatus::Error("Mutex-Fehler".to_string()))
     }
@@ -208,7 +210,9 @@ impl Drop for PipeWireSession {
         // SAFETY: pipewire::deinit() wird nur einmal aufgerufen beim Drop
         // der einzigen PipeWireSession-Instanz. Der MainLoop-Thread wurde
         // zuvor in disconnect() gestoppt und gejoined.
-        unsafe { pipewire::deinit(); }
+        unsafe {
+            pipewire::deinit();
+        }
     }
 }
 
@@ -301,12 +305,14 @@ pub fn check_pipewire_available() -> Result<(), String> {
         return Err(
             "PipeWire ist nicht aktiv. Bitte stelle sicher, dass PipeWire läuft.\n\
              Starte PipeWire mit: systemctl --user start pipewire pipewire-pulse wireplumber"
-                .to_string()
+                .to_string(),
         );
     }
 
-    info!("PipeWire v{} erkannt ({}Hz, {} Samples Buffer)",
-        pw_info.version, pw_info.sample_rate, pw_info.buffer_size);
+    info!(
+        "PipeWire v{} erkannt ({}Hz, {} Samples Buffer)",
+        pw_info.version, pw_info.sample_rate, pw_info.buffer_size
+    );
 
     Ok(())
 }
@@ -346,7 +352,10 @@ pub fn create_audio_link(source_id: &str, bus_id: &str) -> Result<(), String> {
         return Err(format!("Link konnte nicht erstellt werden: {}", stderr));
     }
 
-    info!("Audio-Link erfolgreich erstellt: {} → {}", source_port, bus_port);
+    info!(
+        "Audio-Link erfolgreich erstellt: {} → {}",
+        source_port, bus_port
+    );
     Ok(())
 }
 
@@ -377,7 +386,10 @@ pub fn remove_audio_link(source_id: &str, bus_id: &str) -> Result<(), String> {
         return Err(format!("Link konnte nicht entfernt werden: {}", stderr));
     }
 
-    info!("Audio-Link erfolgreich entfernt: {} → {}", source_port, bus_port);
+    info!(
+        "Audio-Link erfolgreich entfernt: {} → {}",
+        source_port, bus_port
+    );
     Ok(())
 }
 
@@ -421,16 +433,18 @@ fn list_audio_devices_via_registry() -> Result<Vec<AudioDevice>, String> {
     // PipeWire initialisieren für Registry-Scan
     pipewire::init();
 
-    let mainloop = pipewire::main_loop::MainLoop::new(None)
-        .map_err(|e| format!("MainLoop Fehler: {}", e))?;
+    let mainloop =
+        pipewire::main_loop::MainLoop::new(None).map_err(|e| format!("MainLoop Fehler: {}", e))?;
 
-    let context = pipewire::context::Context::new(&mainloop)
-        .map_err(|e| format!("Context Fehler: {}", e))?;
+    let context =
+        pipewire::context::Context::new(&mainloop).map_err(|e| format!("Context Fehler: {}", e))?;
 
-    let core = context.connect(None)
+    let core = context
+        .connect(None)
         .map_err(|e| format!("Core Verbindung fehlgeschlagen: {}", e))?;
 
-    let registry = core.get_registry()
+    let registry = core
+        .get_registry()
         .map_err(|e| format!("Registry-Zugriff fehlgeschlagen: {}", e))?;
 
     let mut devices = Vec::new();
@@ -447,15 +461,17 @@ fn list_audio_devices_via_registry() -> Result<Vec<AudioDevice>, String> {
                     let media_class = props.get("media.class").unwrap_or("");
 
                     // Nur Audio-Source/Sink Nodes
-                    let device_type = if media_class.contains("Source") || media_class.contains("Input") {
-                        "input".to_string()
-                    } else if media_class.contains("Sink") || media_class.contains("Output") {
-                        "output".to_string()
-                    } else {
-                        return; // Kein Audio-Node
-                    };
+                    let device_type =
+                        if media_class.contains("Source") || media_class.contains("Input") {
+                            "input".to_string()
+                        } else if media_class.contains("Sink") || media_class.contains("Output") {
+                            "output".to_string()
+                        } else {
+                            return; // Kein Audio-Node
+                        };
 
-                    let channels = props.get("audio.channels")
+                    let channels = props
+                        .get("audio.channels")
                         .and_then(|s| s.parse::<u32>().ok())
                         .unwrap_or(2);
 
@@ -487,7 +503,9 @@ fn list_audio_devices_via_registry() -> Result<Vec<AudioDevice>, String> {
     }
 
     // Cleanup
-    unsafe { pipewire::deinit(); }
+    unsafe {
+        pipewire::deinit();
+    }
 
     if devices.is_empty() {
         Err("Keine Audio-Devices via Registry gefunden".to_string())
@@ -561,6 +579,16 @@ fn parse_pw_nodes(output: &str) -> Vec<AudioDevice> {
         }
     }
 
+    // Letztes Device hinzufügen falls Output nicht mit leerer Zeile endet
+    if current_id.is_some() && !current_name.is_empty() {
+        devices.push(AudioDevice {
+            id: current_id.unwrap(),
+            name: current_name,
+            device_type: current_type,
+            channels: current_channels,
+        });
+    }
+
     devices
 }
 
@@ -589,7 +617,10 @@ fn map_source_to_port(source_id: &str) -> Result<String, String> {
                             false
                         }
                     }
-                    _ => device.name.to_lowercase().contains(&source_id.to_lowercase()),
+                    _ => device
+                        .name
+                        .to_lowercase()
+                        .contains(&source_id.to_lowercase()),
                 };
 
                 if matches {
@@ -606,7 +637,11 @@ fn map_source_to_port(source_id: &str) -> Result<String, String> {
             for device in devices.iter() {
                 if device.name.contains("application") || device.name.contains("client") {
                     let app_name = source_id.strip_prefix("app-").unwrap_or(source_id);
-                    if device.name.to_lowercase().contains(&app_name.to_lowercase()) {
+                    if device
+                        .name
+                        .to_lowercase()
+                        .contains(&app_name.to_lowercase())
+                    {
                         let port_name = format!("{}:output_FL", device.name);
                         info!("App-Source-Mapping: {} → {}", source_id, port_name);
                         return Ok(port_name);
@@ -709,7 +744,10 @@ mod tests {
         // Dieser Test funktioniert nur wenn PipeWire installiert ist
         let info = get_pipewire_info();
         // Version sollte nicht leer sein wenn PipeWire installiert ist
-        assert!(!info.version.is_empty(), "PipeWire-Version sollte erkannt werden");
+        assert!(
+            !info.version.is_empty(),
+            "PipeWire-Version sollte erkannt werden"
+        );
     }
 
     #[test]
@@ -721,7 +759,10 @@ mod tests {
 
     #[test]
     fn test_extract_value_from_metadata() {
-        assert_eq!(extract_value_from_metadata("key value 48000"), Some("48000"));
+        assert_eq!(
+            extract_value_from_metadata("key value 48000"),
+            Some("48000")
+        );
         assert_eq!(extract_value_from_metadata("no numbers here!"), None);
     }
 
@@ -766,9 +807,12 @@ mod tests {
 
     #[test]
     fn test_map_source_to_port_app() {
+        // App-Audio ist implementiert, aber ohne laufende App gibt es keinen Node
         let result = map_source_to_port("app-browser");
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("App-Audio Routing noch nicht implementiert"));
+        assert!(result
+            .unwrap_err()
+            .contains("App-Audio Node nicht gefunden"));
     }
 
     #[test]
@@ -816,7 +860,10 @@ mod tests {
         let devices = result.unwrap();
         println!("Audio Devices gefunden: {}", devices.len());
         for device in devices {
-            println!("  - {} ({}, {} Kanäle)", device.name, device.device_type, device.channels);
+            println!(
+                "  - {} ({}, {} Kanäle)",
+                device.name, device.device_type, device.channels
+            );
         }
     }
 

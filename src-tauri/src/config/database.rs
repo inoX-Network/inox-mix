@@ -1,8 +1,8 @@
 // Modul: config/database — SQLite-Datenbankverbindung und Initialisierung
-use rusqlite::{Connection, params};
+use log::{error, info};
+use rusqlite::{params, Connection};
 use std::path::Path;
 use std::sync::Mutex;
-use log::{info, error};
 
 /// Datenbank-Manager für SQLite — Thread-sicher über Mutex
 pub struct Database {
@@ -61,7 +61,10 @@ impl Database {
 
     /// Standard-Tabellen erstellen (config, presets, scenes)
     pub fn create_tables(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let conn = self.conn.lock().map_err(|e| format!("Mutex-Fehler: {}", e))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| format!("Mutex-Fehler: {}", e))?;
 
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS config (
@@ -96,7 +99,7 @@ impl Database {
 
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY NOT NULL
-            );"
+            );",
         )?;
 
         // Schema-Version setzen falls noch nicht vorhanden
@@ -113,7 +116,10 @@ impl Database {
     ///
     /// Gibt None zurück wenn der Key nicht existiert.
     pub fn get(&self, key: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
-        let conn = self.conn.lock().map_err(|e| format!("Mutex-Fehler: {}", e))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| format!("Mutex-Fehler: {}", e))?;
 
         let mut stmt = conn.prepare("SELECT value FROM config WHERE key = ?1")?;
         let result = stmt.query_row(params![key], |row| row.get::<_, String>(0));
@@ -127,7 +133,10 @@ impl Database {
 
     /// Wert in config-Tabelle schreiben (INSERT oder UPDATE)
     pub fn set(&self, key: &str, value: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let conn = self.conn.lock().map_err(|e| format!("Mutex-Fehler: {}", e))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| format!("Mutex-Fehler: {}", e))?;
 
         conn.execute(
             "INSERT OR REPLACE INTO config (key, value) VALUES (?1, ?2)",
@@ -139,19 +148,22 @@ impl Database {
 
     /// Wert aus config-Tabelle löschen
     pub fn delete(&self, key: &str) -> Result<bool, Box<dyn std::error::Error>> {
-        let conn = self.conn.lock().map_err(|e| format!("Mutex-Fehler: {}", e))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| format!("Mutex-Fehler: {}", e))?;
 
-        let rows = conn.execute(
-            "DELETE FROM config WHERE key = ?1",
-            params![key],
-        )?;
+        let rows = conn.execute("DELETE FROM config WHERE key = ?1", params![key])?;
 
         Ok(rows > 0)
     }
 
     /// Alle Config-Einträge als Key-Value Paare lesen
     pub fn get_all(&self) -> Result<Vec<(String, String)>, Box<dyn std::error::Error>> {
-        let conn = self.conn.lock().map_err(|e| format!("Mutex-Fehler: {}", e))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| format!("Mutex-Fehler: {}", e))?;
 
         let mut stmt = conn.prepare("SELECT key, value FROM config ORDER BY key")?;
         let rows = stmt.query_map([], |row| {
@@ -168,13 +180,15 @@ impl Database {
 
     /// Aktuelle Schema-Version abfragen
     pub fn schema_version(&self) -> Result<u32, Box<dyn std::error::Error>> {
-        let conn = self.conn.lock().map_err(|e| format!("Mutex-Fehler: {}", e))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| format!("Mutex-Fehler: {}", e))?;
 
-        let version: u32 = conn.query_row(
-            "SELECT MAX(version) FROM schema_version",
-            [],
-            |row| row.get(0),
-        )?;
+        let version: u32 =
+            conn.query_row("SELECT MAX(version) FROM schema_version", [], |row| {
+                row.get(0)
+            })?;
 
         Ok(version)
     }

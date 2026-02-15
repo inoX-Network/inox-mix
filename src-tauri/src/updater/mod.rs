@@ -1,7 +1,7 @@
 // Modul: updater — Update-Manager (GitHub Releases + Tauri Updater)
 use serde::{Deserialize, Serialize};
-use tauri_plugin_updater::UpdaterExt;
 use tauri::Emitter;
+use tauri_plugin_updater::UpdaterExt;
 
 /// Update-Information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,36 +54,32 @@ impl Default for UpdateManager {
 
 /// Auf Updates prüfen (Tauri Command)
 #[tauri::command]
-pub async fn check_for_updates(
-    app: tauri::AppHandle,
-) -> Result<Option<UpdateInfo>, String> {
+pub async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, String> {
     log::info!("Prüfe auf Updates...");
 
     match app.updater() {
-        Ok(updater) => {
-            match updater.check().await {
-                Ok(update) => {
-                    if let Some(update) = update {
-                        log::info!("Update verfügbar: v{}", update.version);
+        Ok(updater) => match updater.check().await {
+            Ok(update) => {
+                if let Some(update) = update {
+                    log::info!("Update verfügbar: v{}", update.version);
 
-                        Ok(Some(UpdateInfo {
-                            version: update.version.clone(),
-                            notes: update.body.clone().unwrap_or_default(),
-                            url: update.download_url.to_string(),
-                            date: update.date.map(|d| d.to_string()).unwrap_or_default(),
-                            available: true,
-                        }))
-                    } else {
-                        log::info!("Keine Updates verfügbar");
-                        Ok(None)
-                    }
-                }
-                Err(e) => {
-                    log::error!("Update-Prüfung fehlgeschlagen: {}", e);
-                    Err(format!("Update-Prüfung fehlgeschlagen: {}", e))
+                    Ok(Some(UpdateInfo {
+                        version: update.version.clone(),
+                        notes: update.body.clone().unwrap_or_default(),
+                        url: update.download_url.to_string(),
+                        date: update.date.map(|d| d.to_string()).unwrap_or_default(),
+                        available: true,
+                    }))
+                } else {
+                    log::info!("Keine Updates verfügbar");
+                    Ok(None)
                 }
             }
-        }
+            Err(e) => {
+                log::error!("Update-Prüfung fehlgeschlagen: {}", e);
+                Err(format!("Update-Prüfung fehlgeschlagen: {}", e))
+            }
+        },
         Err(e) => {
             log::error!("Updater nicht verfügbar: {}", e);
             Err(format!("Updater nicht verfügbar: {}", e))
@@ -93,10 +89,7 @@ pub async fn check_for_updates(
 
 /// Update herunterladen und installieren (Tauri Command)
 #[tauri::command]
-pub async fn install_update(
-    app: tauri::AppHandle,
-    window: tauri::Window,
-) -> Result<(), String> {
+pub async fn install_update(app: tauri::AppHandle, window: tauri::Window) -> Result<(), String> {
     log::info!("Starte Update-Installation...");
 
     match app.updater() {

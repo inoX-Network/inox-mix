@@ -1,6 +1,6 @@
 // Modul: audio/mixer — Input-Strips, Lautstärke-Kontrolle und Bus-Routing
-use serde::{Deserialize, Serialize};
 use log::info;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Maximale Anzahl an Strips (Hardware + Virtual)
@@ -154,7 +154,9 @@ impl MixerState {
 
     /// Lautstärke eines Strips setzen (in dB)
     pub fn set_volume(&mut self, strip_id: &str, volume_db: f32) -> Result<(), String> {
-        let strip = self.strips.get_mut(strip_id)
+        let strip = self
+            .strips
+            .get_mut(strip_id)
             .ok_or_else(|| format!("Strip '{}' nicht gefunden", strip_id))?;
 
         strip.volume_db = volume_db.clamp(MIN_VOLUME_DB, MAX_VOLUME_DB);
@@ -163,7 +165,9 @@ impl MixerState {
 
     /// Gain eines Strips setzen (in dB)
     pub fn set_gain(&mut self, strip_id: &str, gain_db: f32) -> Result<(), String> {
-        let strip = self.strips.get_mut(strip_id)
+        let strip = self
+            .strips
+            .get_mut(strip_id)
             .ok_or_else(|| format!("Strip '{}' nicht gefunden", strip_id))?;
 
         strip.gain_db = gain_db.clamp(MIN_GAIN_DB, MAX_GAIN_DB);
@@ -172,7 +176,9 @@ impl MixerState {
 
     /// Strip stumm schalten / Stummschaltung aufheben
     pub fn set_mute(&mut self, strip_id: &str, muted: bool) -> Result<(), String> {
-        let strip = self.strips.get_mut(strip_id)
+        let strip = self
+            .strips
+            .get_mut(strip_id)
             .ok_or_else(|| format!("Strip '{}' nicht gefunden", strip_id))?;
 
         strip.muted = muted;
@@ -181,7 +187,9 @@ impl MixerState {
 
     /// Solo-Modus für einen Strip setzen
     pub fn set_solo(&mut self, strip_id: &str, solo: bool) -> Result<(), String> {
-        let strip = self.strips.get_mut(strip_id)
+        let strip = self
+            .strips
+            .get_mut(strip_id)
             .ok_or_else(|| format!("Strip '{}' nicht gefunden", strip_id))?;
 
         strip.solo = solo;
@@ -189,8 +197,15 @@ impl MixerState {
     }
 
     /// Bus-Routing für einen Strip ändern
-    pub fn set_bus_routing(&mut self, strip_id: &str, bus_id: &str, active: bool) -> Result<(), String> {
-        let strip = self.strips.get_mut(strip_id)
+    pub fn set_bus_routing(
+        &mut self,
+        strip_id: &str,
+        bus_id: &str,
+        active: bool,
+    ) -> Result<(), String> {
+        let strip = self
+            .strips
+            .get_mut(strip_id)
             .ok_or_else(|| format!("Strip '{}' nicht gefunden", strip_id))?;
 
         if active {
@@ -205,7 +220,9 @@ impl MixerState {
 
     /// Pan-Position eines Strips setzen (-1.0 bis 1.0)
     pub fn set_pan(&mut self, strip_id: &str, pan: f32) -> Result<(), String> {
-        let strip = self.strips.get_mut(strip_id)
+        let strip = self
+            .strips
+            .get_mut(strip_id)
             .ok_or_else(|| format!("Strip '{}' nicht gefunden", strip_id))?;
 
         strip.pan = pan.clamp(-1.0, 1.0);
@@ -214,7 +231,9 @@ impl MixerState {
 
     /// FX-Chain für einen Strip aktivieren/deaktivieren
     pub fn set_fx_enabled(&mut self, strip_id: &str, enabled: bool) -> Result<(), String> {
-        let strip = self.strips.get_mut(strip_id)
+        let strip = self
+            .strips
+            .get_mut(strip_id)
             .ok_or_else(|| format!("Strip '{}' nicht gefunden", strip_id))?;
 
         strip.fx_enabled = enabled;
@@ -225,7 +244,8 @@ impl MixerState {
     pub fn add_virtual_strip(&mut self) -> Result<InputStrip, String> {
         if self.strips.len() >= MAX_STRIPS {
             return Err(format!(
-                "Maximale Anzahl von {} Strips erreicht", MAX_STRIPS
+                "Maximale Anzahl von {} Strips erreicht",
+                MAX_STRIPS
             ));
         }
 
@@ -237,15 +257,21 @@ impl MixerState {
         self.strips.insert(id, strip.clone());
         self.next_virtual_id += 1;
 
-        info!("Virtual-Strip '{}' hinzugefügt ({}/{})",
-            strip.label, self.strips.len(), MAX_STRIPS);
+        info!(
+            "Virtual-Strip '{}' hinzugefügt ({}/{})",
+            strip.label,
+            self.strips.len(),
+            MAX_STRIPS
+        );
 
         Ok(strip)
     }
 
     /// Virtual-Strip entfernen (Hardware-Strips können nicht entfernt werden)
     pub fn remove_virtual_strip(&mut self, strip_id: &str) -> Result<(), String> {
-        let strip = self.strips.get(strip_id)
+        let strip = self
+            .strips
+            .get(strip_id)
             .ok_or_else(|| format!("Strip '{}' nicht gefunden", strip_id))?;
 
         if strip.strip_type != StripType::Virtual {

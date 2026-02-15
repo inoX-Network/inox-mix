@@ -3,8 +3,8 @@
 use crate::fx::AudioProcessor;
 
 pub struct DenoiseModule {
-    threshold_db: f32,     // -60 bis -10 dB
-    reduction_db: f32,     // 0 bis 40 dB
+    threshold_db: f32, // -60 bis -10 dB
+    reduction_db: f32, // 0 bis 40 dB
     bypassed: bool,
     threshold_linear: f32,
     reduction_factor: f32,
@@ -52,8 +52,12 @@ impl AudioProcessor for DenoiseModule {
         }
     }
 
-    fn set_bypass(&mut self, bypass: bool) { self.bypassed = bypass; }
-    fn is_bypassed(&self) -> bool { self.bypassed }
+    fn set_bypass(&mut self, bypass: bool) {
+        self.bypassed = bypass;
+    }
+    fn is_bypassed(&self) -> bool {
+        self.bypassed
+    }
     fn reset(&mut self) {}
 }
 
@@ -82,7 +86,7 @@ mod tests {
     fn test_set_threshold_invalid() {
         let mut dn = DenoiseModule::new(SAMPLE_RATE);
         assert!(dn.set_threshold(-70.0).is_err()); // Zu niedrig
-        assert!(dn.set_threshold(-5.0).is_err());  // Zu hoch
+        assert!(dn.set_threshold(-5.0).is_err()); // Zu hoch
     }
 
     #[test]

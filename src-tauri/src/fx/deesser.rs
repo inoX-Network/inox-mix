@@ -3,9 +3,9 @@
 use crate::fx::AudioProcessor;
 
 pub struct DeEsserModule {
-    freq_hz: f32,          // 4000-10000 Hz
-    threshold_db: f32,     // -40 bis 0 dB
-    ratio: f32,            // 2.0 bis 10.0
+    freq_hz: f32,      // 4000-10000 Hz
+    threshold_db: f32, // -40 bis 0 dB
+    ratio: f32,        // 2.0 bis 10.0
     bypassed: bool,
     threshold_linear: f32,
 }
@@ -53,8 +53,12 @@ impl AudioProcessor for DeEsserModule {
         }
     }
 
-    fn set_bypass(&mut self, bypass: bool) { self.bypassed = bypass; }
-    fn is_bypassed(&self) -> bool { self.bypassed }
+    fn set_bypass(&mut self, bypass: bool) {
+        self.bypassed = bypass;
+    }
+    fn is_bypassed(&self) -> bool {
+        self.bypassed
+    }
     fn reset(&mut self) {}
 }
 
@@ -84,7 +88,7 @@ mod tests {
     fn test_set_threshold_invalid() {
         let mut ds = DeEsserModule::new(SAMPLE_RATE);
         assert!(ds.set_threshold(-50.0).is_err()); // Zu niedrig
-        assert!(ds.set_threshold(5.0).is_err());   // Zu hoch
+        assert!(ds.set_threshold(5.0).is_err()); // Zu hoch
     }
 
     #[test]

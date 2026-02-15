@@ -3,10 +3,10 @@
 // Verwaltet Presets (vordefinierte Configs) und Scenes (User-Snapshots)
 // SPEC: 10-presets-scenes
 
-use serde::{Deserialize, Serialize};
 use super::database::Database;
-use std::sync::Arc;
 use rusqlite::params;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// Ein gespeichertes Preset (Mixer-Snapshot)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,7 +57,10 @@ impl SceneManager {
 
     /// Scene speichern
     pub fn save_scene(&self, name: &str, state_json: &str) -> Result<String, String> {
-        let conn = self.db.conn.lock()
+        let conn = self
+            .db
+            .conn
+            .lock()
             .map_err(|e| format!("DB-Lock-Fehler: {}", e))?;
 
         let id = format!("scene_{}", uuid::Uuid::new_v4());
@@ -69,7 +72,8 @@ impl SceneManager {
         conn.execute(
             "INSERT INTO scenes (id, name, state_json, created_at) VALUES (?1, ?2, ?3, ?4)",
             params![id, name, state_json, created_at],
-        ).map_err(|e| format!("DB-Insert-Fehler: {}", e))?;
+        )
+        .map_err(|e| format!("DB-Insert-Fehler: {}", e))?;
 
         log::info!("Scene gespeichert: {} (ID: {})", name, id);
         Ok(id)
@@ -77,21 +81,26 @@ impl SceneManager {
 
     /// Scene laden
     pub fn load_scene(&self, id: &str) -> Result<Scene, String> {
-        let conn = self.db.conn.lock()
+        let conn = self
+            .db
+            .conn
+            .lock()
             .map_err(|e| format!("DB-Lock-Fehler: {}", e))?;
 
-        let mut stmt = conn.prepare(
-            "SELECT id, name, state_json, created_at FROM scenes WHERE id = ?1"
-        ).map_err(|e| format!("DB-Prepare-Fehler: {}", e))?;
+        let mut stmt = conn
+            .prepare("SELECT id, name, state_json, created_at FROM scenes WHERE id = ?1")
+            .map_err(|e| format!("DB-Prepare-Fehler: {}", e))?;
 
-        let scene = stmt.query_row(params![id], |row| {
-            Ok(Scene {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                state_json: row.get(2)?,
-                created_at: row.get(3)?,
+        let scene = stmt
+            .query_row(params![id], |row| {
+                Ok(Scene {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    state_json: row.get(2)?,
+                    created_at: row.get(3)?,
+                })
             })
-        }).map_err(|e| format!("Scene nicht gefunden: {}", e))?;
+            .map_err(|e| format!("Scene nicht gefunden: {}", e))?;
 
         log::info!("Scene geladen: {} (ID: {})", scene.name, scene.id);
         Ok(scene)
@@ -99,13 +108,15 @@ impl SceneManager {
 
     /// Scene löschen
     pub fn delete_scene(&self, id: &str) -> Result<(), String> {
-        let conn = self.db.conn.lock()
+        let conn = self
+            .db
+            .conn
+            .lock()
             .map_err(|e| format!("DB-Lock-Fehler: {}", e))?;
 
-        let rows_affected = conn.execute(
-            "DELETE FROM scenes WHERE id = ?1",
-            params![id],
-        ).map_err(|e| format!("DB-Delete-Fehler: {}", e))?;
+        let rows_affected = conn
+            .execute("DELETE FROM scenes WHERE id = ?1", params![id])
+            .map_err(|e| format!("DB-Delete-Fehler: {}", e))?;
 
         if rows_affected == 0 {
             return Err(format!("Scene nicht gefunden: {}", id));
@@ -117,22 +128,27 @@ impl SceneManager {
 
     /// Alle Scenes auflisten (ohne state_json)
     pub fn list_scenes(&self) -> Result<Vec<SceneInfo>, String> {
-        let conn = self.db.conn.lock()
+        let conn = self
+            .db
+            .conn
+            .lock()
             .map_err(|e| format!("DB-Lock-Fehler: {}", e))?;
 
-        let mut stmt = conn.prepare(
-            "SELECT id, name, created_at FROM scenes ORDER BY created_at DESC"
-        ).map_err(|e| format!("DB-Prepare-Fehler: {}", e))?;
+        let mut stmt = conn
+            .prepare("SELECT id, name, created_at FROM scenes ORDER BY created_at DESC")
+            .map_err(|e| format!("DB-Prepare-Fehler: {}", e))?;
 
-        let scenes = stmt.query_map([], |row| {
-            Ok(SceneInfo {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                created_at: row.get(2)?,
+        let scenes = stmt
+            .query_map([], |row| {
+                Ok(SceneInfo {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    created_at: row.get(2)?,
+                })
             })
-        }).map_err(|e| format!("DB-Query-Fehler: {}", e))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("DB-Collect-Fehler: {}", e))?;
+            .map_err(|e| format!("DB-Query-Fehler: {}", e))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("DB-Collect-Fehler: {}", e))?;
 
         Ok(scenes)
     }

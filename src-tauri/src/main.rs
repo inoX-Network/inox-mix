@@ -1,37 +1,37 @@
 // Modul: main — Tauri Entry-Point mit PipeWire- und Datenbank-Initialisierung
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod api;
 mod audio;
+mod calibrate;
+mod config;
 mod fx;
+mod recording;
 mod streamer;
 mod stt;
-mod config;
-mod api;
-mod recording;
-mod calibrate;
 mod updater;
 
-use recording::{RecordingEngine, RecordingFormat, RecordingInfo, ActiveRecording};
-use config::presets::{SceneManager, Scene, SceneInfo};
-use streamer::soundboard::{SoundboardManager, SoundEntry};
-use streamer::voice_fx::{VoiceFxManager, VoiceFxState, VoiceFxPreset};
-use streamer::ducking::{DuckingEngine, DuckingParams};
-use streamer::bleeper::{BleeperEngine, BleepMode};
 use calibrate::{CalibrateEngine, CalibrationResult};
+use config::presets::{Scene, SceneInfo, SceneManager};
+use recording::{ActiveRecording, RecordingEngine, RecordingFormat, RecordingInfo};
+use streamer::bleeper::{BleepMode, BleeperEngine};
+use streamer::ducking::{DuckingEngine, DuckingParams};
+use streamer::soundboard::{SoundEntry, SoundboardManager};
+use streamer::voice_fx::{VoiceFxManager, VoiceFxPreset, VoiceFxState};
 use updater::{check_for_updates, install_update};
 
 use audio::bus::{BusManager, OutputBus};
-use audio::mixer::{InputStrip, MixerState};
-use audio::routing::{RoutingManager, RoutingEntry};
 use audio::master::{MasterManager, MasterState};
-use audio::pipewire::{self as pw, AudioDevice};
 use audio::metering_service::MeteringService;
+use audio::mixer::{InputStrip, MixerState};
+use audio::pipewire::{self as pw, AudioDevice};
+use audio::routing::{RoutingEntry, RoutingManager};
 use config::database::Database;
 use config::ConfigManager;
 use fx::{FxChain, FxModuleInfo, FxModuleType};
-use log::{info, error, warn};
+use log::{error, info, warn};
 use std::sync::{Arc, Mutex};
-use tauri::{Manager, Emitter};
+use tauri::{Emitter, Manager};
 
 /// Dateiname der SQLite-Datenbank
 const DB_FILENAME: &str = "inox-mix.db";
@@ -95,14 +95,18 @@ fn get_audio_devices() -> Result<Vec<AudioDevice>, String> {
 /// Config-Wert aus der Datenbank lesen
 #[tauri::command]
 fn get_config(key: String, state: tauri::State<'_, AppState>) -> Result<Option<String>, String> {
-    state.config_manager.get(&key)
+    state
+        .config_manager
+        .get(&key)
         .map_err(|e| format!("Config-Fehler: {}", e))
 }
 
 /// Config-Wert in die Datenbank schreiben
 #[tauri::command]
 fn set_config(key: String, value: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.config_manager.set(&key, &value)
+    state
+        .config_manager
+        .set(&key, &value)
         .map_err(|e| format!("Config-Fehler: {}", e))
 }
 
@@ -124,7 +128,8 @@ fn export_config(state: tauri::State<'_, AppState>) -> Result<String, String> {
             "language": "DE",
             "theme": "Dark"
         }
-    }).to_string())
+    })
+    .to_string())
 }
 
 /// Config aus JSON importieren
@@ -140,47 +145,80 @@ fn import_config(config_json: String, state: tauri::State<'_, AppState>) -> Resu
 /// Alle Input-Strips als sortierte Liste abrufen
 #[tauri::command]
 fn get_strips(state: tauri::State<'_, AppState>) -> Result<Vec<InputStrip>, String> {
-    let mixer = state.mixer.lock()
+    let mixer = state
+        .mixer
+        .lock()
         .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
     Ok(mixer.get_strips())
 }
 
 /// Lautstärke eines Strips setzen (in dB)
 #[tauri::command]
-fn set_strip_volume(strip_id: String, volume_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut mixer = state.mixer.lock()
+fn set_strip_volume(
+    strip_id: String,
+    volume_db: f32,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut mixer = state
+        .mixer
+        .lock()
         .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
     mixer.set_volume(&strip_id, volume_db)
 }
 
 /// Gain eines Strips setzen (in dB)
 #[tauri::command]
-fn set_strip_gain(strip_id: String, gain_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut mixer = state.mixer.lock()
+fn set_strip_gain(
+    strip_id: String,
+    gain_db: f32,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut mixer = state
+        .mixer
+        .lock()
         .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
     mixer.set_gain(&strip_id, gain_db)
 }
 
 /// Stummschaltung eines Strips setzen
 #[tauri::command]
-fn set_strip_mute(strip_id: String, muted: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut mixer = state.mixer.lock()
+fn set_strip_mute(
+    strip_id: String,
+    muted: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut mixer = state
+        .mixer
+        .lock()
         .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
     mixer.set_mute(&strip_id, muted)
 }
 
 /// Solo-Modus eines Strips setzen
 #[tauri::command]
-fn set_strip_solo(strip_id: String, solo: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut mixer = state.mixer.lock()
+fn set_strip_solo(
+    strip_id: String,
+    solo: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut mixer = state
+        .mixer
+        .lock()
         .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
     mixer.set_solo(&strip_id, solo)
 }
 
 /// Bus-Routing eines Strips ändern (Bus hinzufügen/entfernen)
 #[tauri::command]
-fn set_strip_bus(strip_id: String, bus_id: String, active: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut mixer = state.mixer.lock()
+fn set_strip_bus(
+    strip_id: String,
+    bus_id: String,
+    active: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut mixer = state
+        .mixer
+        .lock()
         .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
     mixer.set_bus_routing(&strip_id, &bus_id, active)
 }
@@ -188,7 +226,9 @@ fn set_strip_bus(strip_id: String, bus_id: String, active: bool, state: tauri::S
 /// Neuen Virtual-Strip hinzufügen
 #[tauri::command]
 fn add_virtual_strip(state: tauri::State<'_, AppState>) -> Result<InputStrip, String> {
-    let mut mixer = state.mixer.lock()
+    let mut mixer = state
+        .mixer
+        .lock()
         .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
     mixer.add_virtual_strip()
 }
@@ -196,7 +236,9 @@ fn add_virtual_strip(state: tauri::State<'_, AppState>) -> Result<InputStrip, St
 /// Virtual-Strip entfernen
 #[tauri::command]
 fn remove_virtual_strip(strip_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut mixer = state.mixer.lock()
+    let mut mixer = state
+        .mixer
+        .lock()
         .map_err(|e| format!("Mixer-Lock-Fehler: {}", e))?;
     mixer.remove_virtual_strip(&strip_id)
 }
@@ -206,23 +248,37 @@ fn remove_virtual_strip(strip_id: String, state: tauri::State<'_, AppState>) -> 
 /// Alle Output-Busse als sortierte Liste abrufen
 #[tauri::command]
 fn get_buses(state: tauri::State<'_, AppState>) -> Result<Vec<OutputBus>, String> {
-    let buses = state.buses.lock()
+    let buses = state
+        .buses
+        .lock()
         .map_err(|e| format!("Bus-Lock-Fehler: {}", e))?;
     Ok(buses.get_buses())
 }
 
 /// Lautstärke eines Bus setzen (in dB)
 #[tauri::command]
-fn set_bus_volume(bus_id: String, volume_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut buses = state.buses.lock()
+fn set_bus_volume(
+    bus_id: String,
+    volume_db: f32,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut buses = state
+        .buses
+        .lock()
         .map_err(|e| format!("Bus-Lock-Fehler: {}", e))?;
     buses.set_volume(&bus_id, volume_db)
 }
 
 /// Stummschaltung eines Bus setzen
 #[tauri::command]
-fn set_bus_mute(bus_id: String, muted: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut buses = state.buses.lock()
+fn set_bus_mute(
+    bus_id: String,
+    muted: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut buses = state
+        .buses
+        .lock()
         .map_err(|e| format!("Bus-Lock-Fehler: {}", e))?;
     buses.set_mute(&bus_id, muted)
 }
@@ -232,7 +288,9 @@ fn set_bus_mute(bus_id: String, muted: bool, state: tauri::State<'_, AppState>) 
 /// FX-Chain Module abrufen (Phase 1: Global, später pro strip_id)
 #[tauri::command]
 fn get_fx_chain(state: tauri::State<'_, AppState>) -> Result<Vec<FxModuleInfo>, String> {
-    let fx = state.fx_chain.lock()
+    let fx = state
+        .fx_chain
+        .lock()
         .map_err(|e| format!("FX-Lock-Fehler: {}", e))?;
     Ok(fx.get_all_modules())
 }
@@ -245,7 +303,9 @@ fn set_fx_param(
     value: f32,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let mut fx = state.fx_chain.lock()
+    let mut fx = state
+        .fx_chain
+        .lock()
         .map_err(|e| format!("FX-Lock-Fehler: {}", e))?;
     fx.set_param(module_type, &param_name, value)
 }
@@ -257,7 +317,9 @@ fn set_fx_bypass(
     bypass: bool,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let mut fx = state.fx_chain.lock()
+    let mut fx = state
+        .fx_chain
+        .lock()
         .map_err(|e| format!("FX-Lock-Fehler: {}", e))?;
     fx.set_bypass(module_type, bypass)
 }
@@ -267,7 +329,9 @@ fn set_fx_bypass(
 /// Routing-Matrix abrufen
 #[tauri::command]
 fn get_routing_matrix(state: tauri::State<'_, AppState>) -> Result<Vec<RoutingEntry>, String> {
-    let routing = state.routing.lock()
+    let routing = state
+        .routing
+        .lock()
         .map_err(|e| format!("Routing-Lock-Fehler: {}", e))?;
     Ok(routing.get_routing_matrix())
 }
@@ -280,7 +344,9 @@ fn set_routing(
     active: bool,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let mut routing = state.routing.lock()
+    let mut routing = state
+        .routing
+        .lock()
         .map_err(|e| format!("Routing-Lock-Fehler: {}", e))?;
     routing.set_routing(&source_id, &bus_id, active)
 }
@@ -290,7 +356,9 @@ fn set_routing(
 /// Master-State abrufen
 #[tauri::command]
 fn get_master(state: tauri::State<'_, AppState>) -> Result<MasterState, String> {
-    let master = state.master.lock()
+    let master = state
+        .master
+        .lock()
         .map_err(|e| format!("Master-Lock-Fehler: {}", e))?;
     Ok(master.get_state())
 }
@@ -298,7 +366,9 @@ fn get_master(state: tauri::State<'_, AppState>) -> Result<MasterState, String> 
 /// Master Volume setzen (in dB)
 #[tauri::command]
 fn set_master_volume(volume_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut master = state.master.lock()
+    let mut master = state
+        .master
+        .lock()
         .map_err(|e| format!("Master-Lock-Fehler: {}", e))?;
     master.set_volume(volume_db)
 }
@@ -306,7 +376,9 @@ fn set_master_volume(volume_db: f32, state: tauri::State<'_, AppState>) -> Resul
 /// Master Limiter Ceiling setzen (in dB)
 #[tauri::command]
 fn set_master_limiter(ceiling_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut master = state.master.lock()
+    let mut master = state
+        .master
+        .lock()
         .map_err(|e| format!("Master-Lock-Fehler: {}", e))?;
     master.set_limiter(ceiling_db)
 }
@@ -314,7 +386,9 @@ fn set_master_limiter(ceiling_db: f32, state: tauri::State<'_, AppState>) -> Res
 /// DIM-Funktion setzen
 #[tauri::command]
 fn set_dim(active: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut master = state.master.lock()
+    let mut master = state
+        .master
+        .lock()
         .map_err(|e| format!("Master-Lock-Fehler: {}", e))?;
     master.set_dim(active)
 }
@@ -322,7 +396,9 @@ fn set_dim(active: bool, state: tauri::State<'_, AppState>) -> Result<(), String
 /// Mono-Check setzen
 #[tauri::command]
 fn set_mono(active: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut master = state.master.lock()
+    let mut master = state
+        .master
+        .lock()
         .map_err(|e| format!("Master-Lock-Fehler: {}", e))?;
     master.set_mono(active)
 }
@@ -334,7 +410,9 @@ fn set_talkback(
     target_buses: Vec<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let mut master = state.master.lock()
+    let mut master = state
+        .master
+        .lock()
         .map_err(|e| format!("Master-Lock-Fehler: {}", e))?;
     master.set_talkback(active, target_buses)
 }
@@ -348,7 +426,9 @@ fn start_recording(
     format: RecordingFormat,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let mut recording = state.recording.lock()
+    let mut recording = state
+        .recording
+        .lock()
         .map_err(|e| format!("Recording-Lock-Fehler: {}", e))?;
     recording.start(&source_id, format)
 }
@@ -359,7 +439,9 @@ fn stop_recording(
     source_id: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<RecordingInfo, String> {
-    let mut recording = state.recording.lock()
+    let mut recording = state
+        .recording
+        .lock()
         .map_err(|e| format!("Recording-Lock-Fehler: {}", e))?;
     recording.stop(&source_id)
 }
@@ -367,7 +449,9 @@ fn stop_recording(
 /// Alle aktiven Aufnahmen abrufen
 #[tauri::command]
 fn get_recording_status(state: tauri::State<'_, AppState>) -> Result<Vec<ActiveRecording>, String> {
-    let recording = state.recording.lock()
+    let recording = state
+        .recording
+        .lock()
         .map_err(|e| format!("Recording-Lock-Fehler: {}", e))?;
     Ok(recording.get_active_recordings())
 }
@@ -407,7 +491,9 @@ fn get_scenes(state: tauri::State<'_, AppState>) -> Result<Vec<SceneInfo>, Strin
 /// Sound abspielen
 #[tauri::command]
 fn play_sound(sound_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let soundboard = state.soundboard.lock()
+    let soundboard = state
+        .soundboard
+        .lock()
         .map_err(|e| format!("Soundboard-Lock-Fehler: {}", e))?;
     soundboard.play_sound(&sound_id)
 }
@@ -415,7 +501,9 @@ fn play_sound(sound_id: String, state: tauri::State<'_, AppState>) -> Result<(),
 /// Sound stoppen
 #[tauri::command]
 fn stop_sound(sound_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let soundboard = state.soundboard.lock()
+    let soundboard = state
+        .soundboard
+        .lock()
         .map_err(|e| format!("Soundboard-Lock-Fehler: {}", e))?;
     soundboard.stop_sound(&sound_id)
 }
@@ -429,7 +517,9 @@ fn add_sound(
     bus_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
-    let soundboard = state.soundboard.lock()
+    let soundboard = state
+        .soundboard
+        .lock()
         .map_err(|e| format!("Soundboard-Lock-Fehler: {}", e))?;
     soundboard.add_sound(&name, &file_path, hotkey, bus_id)
 }
@@ -437,7 +527,9 @@ fn add_sound(
 /// Sound entfernen
 #[tauri::command]
 fn remove_sound(sound_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let soundboard = state.soundboard.lock()
+    let soundboard = state
+        .soundboard
+        .lock()
         .map_err(|e| format!("Soundboard-Lock-Fehler: {}", e))?;
     soundboard.remove_sound(&sound_id)
 }
@@ -445,7 +537,9 @@ fn remove_sound(sound_id: String, state: tauri::State<'_, AppState>) -> Result<(
 /// Alle Sounds auflisten
 #[tauri::command]
 fn get_sounds(state: tauri::State<'_, AppState>) -> Result<Vec<SoundEntry>, String> {
-    let soundboard = state.soundboard.lock()
+    let soundboard = state
+        .soundboard
+        .lock()
         .map_err(|e| format!("Soundboard-Lock-Fehler: {}", e))?;
     soundboard.get_sounds()
 }
@@ -457,7 +551,9 @@ fn set_sound_volume(
     volume_db: f32,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let soundboard = state.soundboard.lock()
+    let soundboard = state
+        .soundboard
+        .lock()
         .map_err(|e| format!("Soundboard-Lock-Fehler: {}", e))?;
     soundboard.set_sound_volume(&sound_id, volume_db)
 }
@@ -465,7 +561,9 @@ fn set_sound_volume(
 /// Soundboard Master-Volume setzen
 #[tauri::command]
 fn set_soundboard_volume(volume_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut soundboard = state.soundboard.lock()
+    let mut soundboard = state
+        .soundboard
+        .lock()
         .map_err(|e| format!("Soundboard-Lock-Fehler: {}", e))?;
     soundboard.set_master_volume(volume_db);
     Ok(())
@@ -476,15 +574,22 @@ fn set_soundboard_volume(volume_db: f32, state: tauri::State<'_, AppState>) -> R
 /// Voice FX State abrufen
 #[tauri::command]
 fn get_voice_fx_state(state: tauri::State<'_, AppState>) -> Result<VoiceFxState, String> {
-    let voice_fx = state.voice_fx.lock()
+    let voice_fx = state
+        .voice_fx
+        .lock()
         .map_err(|e| format!("VoiceFX-Lock-Fehler: {}", e))?;
     Ok(voice_fx.get_state().clone())
 }
 
 /// Voice FX Preset setzen
 #[tauri::command]
-fn set_voice_fx_preset(preset: VoiceFxPreset, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut voice_fx = state.voice_fx.lock()
+fn set_voice_fx_preset(
+    preset: VoiceFxPreset,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut voice_fx = state
+        .voice_fx
+        .lock()
         .map_err(|e| format!("VoiceFX-Lock-Fehler: {}", e))?;
     voice_fx.set_preset(preset);
     Ok(())
@@ -493,7 +598,9 @@ fn set_voice_fx_preset(preset: VoiceFxPreset, state: tauri::State<'_, AppState>)
 /// Voice FX aktivieren/deaktivieren
 #[tauri::command]
 fn set_voice_fx_enabled(enabled: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut voice_fx = state.voice_fx.lock()
+    let mut voice_fx = state
+        .voice_fx
+        .lock()
         .map_err(|e| format!("VoiceFX-Lock-Fehler: {}", e))?;
     voice_fx.set_enabled(enabled);
     Ok(())
@@ -502,7 +609,9 @@ fn set_voice_fx_enabled(enabled: bool, state: tauri::State<'_, AppState>) -> Res
 /// Voice FX Dry/Wet Mix setzen (0.0-1.0)
 #[tauri::command]
 fn set_voice_fx_drywet(dry_wet: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut voice_fx = state.voice_fx.lock()
+    let mut voice_fx = state
+        .voice_fx
+        .lock()
         .map_err(|e| format!("VoiceFX-Lock-Fehler: {}", e))?;
     voice_fx.set_dry_wet(dry_wet)
 }
@@ -512,7 +621,9 @@ fn set_voice_fx_drywet(dry_wet: f32, state: tauri::State<'_, AppState>) -> Resul
 /// Ducking State abrufen
 #[tauri::command]
 fn get_ducking_state(state: tauri::State<'_, AppState>) -> Result<DuckingParams, String> {
-    let ducking = state.ducking.lock()
+    let ducking = state
+        .ducking
+        .lock()
         .map_err(|e| format!("Ducking-Lock-Fehler: {}", e))?;
     Ok(ducking.params.clone())
 }
@@ -520,7 +631,9 @@ fn get_ducking_state(state: tauri::State<'_, AppState>) -> Result<DuckingParams,
 /// Ducking aktivieren/deaktivieren
 #[tauri::command]
 fn set_ducking_enabled(enabled: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut ducking = state.ducking.lock()
+    let mut ducking = state
+        .ducking
+        .lock()
         .map_err(|e| format!("Ducking-Lock-Fehler: {}", e))?;
     ducking.enabled = enabled;
     Ok(())
@@ -529,7 +642,9 @@ fn set_ducking_enabled(enabled: bool, state: tauri::State<'_, AppState>) -> Resu
 /// Ducking Amount setzen (in dB, -30 bis 0)
 #[tauri::command]
 fn set_ducking_amount(amount_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut ducking = state.ducking.lock()
+    let mut ducking = state
+        .ducking
+        .lock()
         .map_err(|e| format!("Ducking-Lock-Fehler: {}", e))?;
     ducking.set_amount(amount_db);
     Ok(())
@@ -538,7 +653,9 @@ fn set_ducking_amount(amount_db: f32, state: tauri::State<'_, AppState>) -> Resu
 /// Ducking Attack setzen (in ms, 10-500)
 #[tauri::command]
 fn set_ducking_attack(attack_ms: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut ducking = state.ducking.lock()
+    let mut ducking = state
+        .ducking
+        .lock()
         .map_err(|e| format!("Ducking-Lock-Fehler: {}", e))?;
     ducking.set_attack(attack_ms);
     Ok(())
@@ -547,7 +664,9 @@ fn set_ducking_attack(attack_ms: f32, state: tauri::State<'_, AppState>) -> Resu
 /// Ducking Release setzen (in ms, 50-2000)
 #[tauri::command]
 fn set_ducking_release(release_ms: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut ducking = state.ducking.lock()
+    let mut ducking = state
+        .ducking
+        .lock()
         .map_err(|e| format!("Ducking-Lock-Fehler: {}", e))?;
     ducking.set_release(release_ms);
     Ok(())
@@ -555,8 +674,13 @@ fn set_ducking_release(release_ms: f32, state: tauri::State<'_, AppState>) -> Re
 
 /// Ducking Threshold setzen (in dB, -50 bis 0)
 #[tauri::command]
-fn set_ducking_threshold(threshold_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut ducking = state.ducking.lock()
+fn set_ducking_threshold(
+    threshold_db: f32,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut ducking = state
+        .ducking
+        .lock()
         .map_err(|e| format!("Ducking-Lock-Fehler: {}", e))?;
     ducking.set_threshold(threshold_db);
     Ok(())
@@ -567,7 +691,9 @@ fn set_ducking_threshold(threshold_db: f32, state: tauri::State<'_, AppState>) -
 /// Bleeper State abrufen
 #[tauri::command]
 fn get_bleeper_state(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
-    let bleeper = state.bleeper.lock()
+    let bleeper = state
+        .bleeper
+        .lock()
         .map_err(|e| format!("Bleeper-Lock-Fehler: {}", e))?;
     Ok(serde_json::json!({
         "mode": format!("{:?}", bleeper.mode),
@@ -580,7 +706,9 @@ fn get_bleeper_state(state: tauri::State<'_, AppState>) -> Result<serde_json::Va
 /// Bleeper Armed setzen
 #[tauri::command]
 fn set_bleeper_armed(armed: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut bleeper = state.bleeper.lock()
+    let mut bleeper = state
+        .bleeper
+        .lock()
         .map_err(|e| format!("Bleeper-Lock-Fehler: {}", e))?;
     bleeper.set_armed(armed);
     Ok(())
@@ -589,7 +717,9 @@ fn set_bleeper_armed(armed: bool, state: tauri::State<'_, AppState>) -> Result<(
 /// Bleeper Mode setzen
 #[tauri::command]
 fn set_bleeper_mode(mode: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut bleeper = state.bleeper.lock()
+    let mut bleeper = state
+        .bleeper
+        .lock()
         .map_err(|e| format!("Bleeper-Lock-Fehler: {}", e))?;
 
     let bleep_mode = match mode.as_str() {
@@ -608,7 +738,9 @@ fn set_bleeper_mode(mode: String, state: tauri::State<'_, AppState>) -> Result<(
 /// Bleeper Tone setzen (in Hz, 200-2000)
 #[tauri::command]
 fn set_bleeper_tone(tone_hz: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut bleeper = state.bleeper.lock()
+    let mut bleeper = state
+        .bleeper
+        .lock()
         .map_err(|e| format!("Bleeper-Lock-Fehler: {}", e))?;
     bleeper.set_tone(tone_hz);
     Ok(())
@@ -617,7 +749,9 @@ fn set_bleeper_tone(tone_hz: f32, state: tauri::State<'_, AppState>) -> Result<(
 /// Bleeper Volume setzen (in dB, -30 bis 0)
 #[tauri::command]
 fn set_bleeper_volume(volume_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut bleeper = state.bleeper.lock()
+    let mut bleeper = state
+        .bleeper
+        .lock()
         .map_err(|e| format!("Bleeper-Lock-Fehler: {}", e))?;
     bleeper.set_volume(volume_db);
     Ok(())
@@ -627,8 +761,13 @@ fn set_bleeper_volume(volume_db: f32, state: tauri::State<'_, AppState>) -> Resu
 
 /// Quick Calibrate durchführen
 #[tauri::command]
-async fn run_calibration(channel_id: String, state: tauri::State<'_, AppState>) -> Result<CalibrationResult, String> {
-    let mut calibrate = state.calibrate.lock()
+async fn run_calibration(
+    channel_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<CalibrationResult, String> {
+    let mut calibrate = state
+        .calibrate
+        .lock()
         .map_err(|e| format!("Calibrate-Lock-Fehler: {}", e))?;
 
     // TODO Phase 2: Echte Audio-Samples vom channel_id erfassen
@@ -639,7 +778,9 @@ async fn run_calibration(channel_id: String, state: tauri::State<'_, AppState>) 
 
 /// Datenbank-Pfad ermitteln (im Tauri App-Data Verzeichnis)
 fn get_db_path(app: &tauri::App) -> Result<String, Box<dyn std::error::Error>> {
-    let app_data = app.path().app_data_dir()
+    let app_data = app
+        .path()
+        .app_data_dir()
         .map_err(|e| format!("App-Data Verzeichnis nicht gefunden: {}", e))?;
     let db_path = app_data.join(DB_FILENAME);
     Ok(db_path.to_string_lossy().to_string())

@@ -1,12 +1,12 @@
 // Modul: config — Konfigurationsverwaltung (SQLite + Presets)
 
-pub mod presets;
 pub mod database;
 pub mod migration;
+pub mod presets;
 
 use database::Database;
-use serde::{Deserialize, Serialize};
 use log::info;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 /// Standard Sample-Rate in Hz
@@ -86,19 +86,19 @@ impl ConfigManager {
     pub fn load_app_config(&self) -> Result<AppConfig, Box<dyn std::error::Error>> {
         let defaults = AppConfig::default();
 
-        let sample_rate = self.get("audio.sample_rate")?
+        let sample_rate = self
+            .get("audio.sample_rate")?
             .and_then(|v| v.parse::<u32>().ok())
             .unwrap_or(defaults.sample_rate);
 
-        let buffer_size = self.get("audio.buffer_size")?
+        let buffer_size = self
+            .get("audio.buffer_size")?
             .and_then(|v| v.parse::<u32>().ok())
             .unwrap_or(defaults.buffer_size);
 
-        let theme = self.get("ui.theme")?
-            .unwrap_or(defaults.theme);
+        let theme = self.get("ui.theme")?.unwrap_or(defaults.theme);
 
-        let language = self.get("ui.language")?
-            .unwrap_or(defaults.language);
+        let language = self.get("ui.language")?.unwrap_or(defaults.language);
 
         Ok(AppConfig {
             sample_rate,

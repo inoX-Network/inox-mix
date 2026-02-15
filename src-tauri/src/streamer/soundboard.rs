@@ -3,14 +3,14 @@
 // Verwaltet Sound-Pads und spielt sie über rodio ab
 // SPEC: 13-soundboard
 
-use serde::{Deserialize, Serialize};
 use crate::config::database::Database;
-use std::sync::Arc;
-use std::path::PathBuf;
-use rusqlite::params;
 use rodio::{Decoder, OutputStream, Sink};
+use rusqlite::params;
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::BufReader;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 /// Ein einzelnes Sound-Pad im Soundboard
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,7 +60,10 @@ impl SoundboardManager {
             return Err(format!("Audio-Datei nicht gefunden: {}", file_path));
         }
 
-        let conn = self.db.conn.lock()
+        let conn = self
+            .db
+            .conn
+            .lock()
             .map_err(|e| format!("DB-Lock-Fehler: {}", e))?;
 
         let id = format!("sound_{}", uuid::Uuid::new_v4());
@@ -74,7 +77,8 @@ impl SoundboardManager {
             "INSERT INTO sounds (id, name, file_path, hotkey, bus_id, volume_db, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![id, name, file_path, hotkey, bus_id, 0.0, created_at],
-        ).map_err(|e| format!("DB-Insert-Fehler: {}", e))?;
+        )
+        .map_err(|e| format!("DB-Insert-Fehler: {}", e))?;
 
         log::info!("Sound hinzugefügt: {} → {}", name, file_path);
         Ok(id)
@@ -93,11 +97,10 @@ impl SoundboardManager {
             .map_err(|e| format!("Audio-Decoder-Fehler: {}", e))?;
 
         // Sink erstellen und abspielen (Fire-and-Forget)
-        let (_stream, stream_handle) = OutputStream::try_default()
-            .map_err(|e| format!("Audio-Output-Fehler: {}", e))?;
+        let (_stream, stream_handle) =
+            OutputStream::try_default().map_err(|e| format!("Audio-Output-Fehler: {}", e))?;
 
-        let sink = Sink::try_new(&stream_handle)
-            .map_err(|e| format!("Sink-Fehler: {}", e))?;
+        let sink = Sink::try_new(&stream_handle).map_err(|e| format!("Sink-Fehler: {}", e))?;
 
         // Volume setzen (dB → linear)
         let total_volume_db = sound.volume_db + self.master_volume_db;
@@ -107,7 +110,11 @@ impl SoundboardManager {
         sink.append(source);
         sink.detach(); // Fire-and-Forget: Sink spielt ab und wird automatisch gedropped
 
-        log::info!("Sound wird abgespielt: {} ({})", sound.name, sound.file_path);
+        log::info!(
+            "Sound wird abgespielt: {} ({})",
+            sound.name,
+            sound.file_path
+        );
         Ok(())
     }
 
@@ -119,13 +126,15 @@ impl SoundboardManager {
 
     /// Sound löschen
     pub fn remove_sound(&self, sound_id: &str) -> Result<(), String> {
-        let conn = self.db.conn.lock()
+        let conn = self
+            .db
+            .conn
+            .lock()
             .map_err(|e| format!("DB-Lock-Fehler: {}", e))?;
 
-        let rows = conn.execute(
-            "DELETE FROM sounds WHERE id = ?1",
-            params![sound_id],
-        ).map_err(|e| format!("DB-Delete-Fehler: {}", e))?;
+        let rows = conn
+            .execute("DELETE FROM sounds WHERE id = ?1", params![sound_id])
+            .map_err(|e| format!("DB-Delete-Fehler: {}", e))?;
 
         if rows == 0 {
             return Err(format!("Sound nicht gefunden: {}", sound_id));
@@ -137,40 +146,52 @@ impl SoundboardManager {
 
     /// Alle Sounds auflisten
     pub fn get_sounds(&self) -> Result<Vec<SoundEntry>, String> {
-        let conn = self.db.conn.lock()
+        let conn = self
+            .db
+            .conn
+            .lock()
             .map_err(|e| format!("DB-Lock-Fehler: {}", e))?;
 
-        let mut stmt = conn.prepare(
-            "SELECT id, name, file_path, hotkey, bus_id, volume_db, created_at
-             FROM sounds ORDER BY created_at ASC"
-        ).map_err(|e| format!("DB-Prepare-Fehler: {}", e))?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, name, file_path, hotkey, bus_id, volume_db, created_at
+             FROM sounds ORDER BY created_at ASC",
+            )
+            .map_err(|e| format!("DB-Prepare-Fehler: {}", e))?;
 
-        let sounds = stmt.query_map([], |row| {
-            Ok(SoundEntry {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                file_path: row.get(2)?,
-                hotkey: row.get(3)?,
-                bus_id: row.get(4)?,
-                volume_db: row.get(5)?,
-                created_at: row.get(6)?,
+        let sounds = stmt
+            .query_map([], |row| {
+                Ok(SoundEntry {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    file_path: row.get(2)?,
+                    hotkey: row.get(3)?,
+                    bus_id: row.get(4)?,
+                    volume_db: row.get(5)?,
+                    created_at: row.get(6)?,
+                })
             })
-        }).map_err(|e| format!("DB-Query-Fehler: {}", e))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("DB-Collect-Fehler: {}", e))?;
+            .map_err(|e| format!("DB-Query-Fehler: {}", e))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("DB-Collect-Fehler: {}", e))?;
 
         Ok(sounds)
     }
 
     /// Einzelnen Sound laden
     fn get_sound(&self, sound_id: &str) -> Result<SoundEntry, String> {
-        let conn = self.db.conn.lock()
+        let conn = self
+            .db
+            .conn
+            .lock()
             .map_err(|e| format!("DB-Lock-Fehler: {}", e))?;
 
-        let mut stmt = conn.prepare(
-            "SELECT id, name, file_path, hotkey, bus_id, volume_db, created_at
-             FROM sounds WHERE id = ?1"
-        ).map_err(|e| format!("DB-Prepare-Fehler: {}", e))?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, name, file_path, hotkey, bus_id, volume_db, created_at
+             FROM sounds WHERE id = ?1",
+            )
+            .map_err(|e| format!("DB-Prepare-Fehler: {}", e))?;
 
         stmt.query_row(params![sound_id], |row| {
             Ok(SoundEntry {
@@ -182,18 +203,23 @@ impl SoundboardManager {
                 volume_db: row.get(5)?,
                 created_at: row.get(6)?,
             })
-        }).map_err(|e| format!("Sound nicht gefunden: {}", e))
+        })
+        .map_err(|e| format!("Sound nicht gefunden: {}", e))
     }
 
     /// Sound-Volume setzen
     pub fn set_sound_volume(&self, sound_id: &str, volume_db: f32) -> Result<(), String> {
-        let conn = self.db.conn.lock()
+        let conn = self
+            .db
+            .conn
+            .lock()
             .map_err(|e| format!("DB-Lock-Fehler: {}", e))?;
 
         conn.execute(
             "UPDATE sounds SET volume_db = ?1 WHERE id = ?2",
             params![volume_db, sound_id],
-        ).map_err(|e| format!("DB-Update-Fehler: {}", e))?;
+        )
+        .map_err(|e| format!("DB-Update-Fehler: {}", e))?;
 
         Ok(())
     }

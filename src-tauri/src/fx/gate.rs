@@ -313,7 +313,10 @@ mod tests {
         // Signal sollte durchkommen (Envelope wird auf 1.0 steigen)
         // Nach 256 Samples mit Attack 5ms sollte Gate weitgehend offen sein
         let output_avg: f32 = buffer_l.iter().sum::<f32>() / buffer_l.len() as f32;
-        assert!(output_avg > 0.1, "Gate sollte lautes Signal passieren lassen");
+        assert!(
+            output_avg > 0.1,
+            "Gate sollte lautes Signal passieren lassen"
+        );
     }
 
     #[test]

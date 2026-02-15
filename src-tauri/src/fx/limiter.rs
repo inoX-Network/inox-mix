@@ -107,8 +107,16 @@ impl AudioProcessor for LimiterModule {
                 let delayed_r = self.lookahead_buffer_r.pop_front().unwrap();
 
                 // Peak im Look-Ahead Fenster finden
-                let peak_l = self.lookahead_buffer_l.iter().map(|s| s.abs()).fold(0.0_f32, f32::max);
-                let peak_r = self.lookahead_buffer_r.iter().map(|s| s.abs()).fold(0.0_f32, f32::max);
+                let peak_l = self
+                    .lookahead_buffer_l
+                    .iter()
+                    .map(|s| s.abs())
+                    .fold(0.0_f32, f32::max);
+                let peak_r = self
+                    .lookahead_buffer_r
+                    .iter()
+                    .map(|s| s.abs())
+                    .fold(0.0_f32, f32::max);
                 let peak = peak_l.max(peak_r);
 
                 // Gain-Reduktion berechnen wenn Peak > Ceiling

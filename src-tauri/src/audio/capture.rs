@@ -2,11 +2,11 @@
 //
 // Phase 2c: Placeholder-Implementierung
 // Phase 2d: CPAL-Integration für echtes Audio geplant
-use ringbuf::HeapRb;
 use log::info;
-use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
+use ringbuf::HeapRb;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 /// Audio-Buffer-Größe (2048 Samples = ~42ms @ 48kHz)
 const AUDIO_BUFFER_SIZE: usize = 2048;
@@ -66,12 +66,11 @@ impl AudioCaptureManager {
     /// Audio-Capture für einen Node starten (Placeholder)
     ///
     /// Phase 2d: Wird mit CPAL implementiert
-    pub fn start_capture(
-        &mut self,
-        stream_id: &str,
-        node_id: u32,
-    ) -> Result<(), String> {
-        info!("Audio-Capture Placeholder: {} (Node {})", stream_id, node_id);
+    pub fn start_capture(&mut self, stream_id: &str, node_id: u32) -> Result<(), String> {
+        info!(
+            "Audio-Capture Placeholder: {} (Node {})",
+            stream_id, node_id
+        );
 
         let streams = self.streams.lock().unwrap();
         if streams.contains_key(stream_id) {
@@ -89,7 +88,10 @@ impl AudioCaptureManager {
             state,
         };
 
-        self.streams.lock().unwrap().insert(stream_id.to_string(), handle);
+        self.streams
+            .lock()
+            .unwrap()
+            .insert(stream_id.to_string(), handle);
 
         info!("⚠️  Phase 2d TODO: CPAL-Integration für echtes Audio");
         Ok(())
@@ -109,7 +111,9 @@ impl AudioCaptureManager {
     /// Status eines Streams abfragen
     pub fn get_stream_state(&self, stream_id: &str) -> Option<StreamState> {
         let streams = self.streams.lock().unwrap();
-        streams.get(stream_id).map(|h| h.state.lock().unwrap().clone())
+        streams
+            .get(stream_id)
+            .map(|h| h.state.lock().unwrap().clone())
     }
 
     /// Alle aktiven Streams auflisten
@@ -167,6 +171,6 @@ mod tests {
     fn test_read_samples_placeholder() {
         let manager = AudioCaptureManager::new();
         let samples = manager.read_samples("test", 10);
-        assert_eq!(samples.len(), 0);  // Placeholder gibt keine Daten
+        assert_eq!(samples.len(), 0); // Placeholder gibt keine Daten
     }
 }

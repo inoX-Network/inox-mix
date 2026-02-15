@@ -3,9 +3,9 @@
 // Verwaltet die Kreuzmatrix welche Audio-Quellen auf welche Output-Busse geroutet werden
 // SPEC: 06-routing-matrix
 
+use crate::audio::pipewire;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::audio::pipewire;
 
 /// Routing-Eintrag (Source → Bus Verbindung)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,7 +46,12 @@ impl RoutingManager {
     }
 
     /// Routing setzen (Verbindung aktivieren/deaktivieren)
-    pub fn set_routing(&mut self, source_id: &str, bus_id: &str, active: bool) -> Result<(), String> {
+    pub fn set_routing(
+        &mut self,
+        source_id: &str,
+        bus_id: &str,
+        active: bool,
+    ) -> Result<(), String> {
         // Validierung: Bus-ID muss A1, A2, B1 oder B2 sein
         if !["A1", "A2", "B1", "B2"].contains(&bus_id) {
             return Err(format!("Ungültige Bus-ID: {}", bus_id));
@@ -190,8 +195,12 @@ mod tests {
         assert_eq!(matrix.len(), 2);
 
         // Prüfe dass beide Einträge vorhanden sind
-        assert!(matrix.iter().any(|e| e.source_id == "mic-1" && e.bus_id == "A1" && e.active));
-        assert!(matrix.iter().any(|e| e.source_id == "mic-1" && e.bus_id == "B1" && e.active));
+        assert!(matrix
+            .iter()
+            .any(|e| e.source_id == "mic-1" && e.bus_id == "A1" && e.active));
+        assert!(matrix
+            .iter()
+            .any(|e| e.source_id == "mic-1" && e.bus_id == "B1" && e.active));
     }
 
     #[test]

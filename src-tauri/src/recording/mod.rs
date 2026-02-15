@@ -118,9 +118,7 @@ impl RecordingEngine {
 
         // Encoder erstellen
         let encoder: Box<dyn AudioEncoder> = match format {
-            RecordingFormat::Wav => {
-                Box::new(WavEncoder::new(path.clone())?)
-            }
+            RecordingFormat::Wav => Box::new(WavEncoder::new(path.clone())?),
             RecordingFormat::Flac => {
                 return Err("FLAC-Format noch nicht implementiert".to_string());
             }
@@ -139,10 +137,10 @@ impl RecordingEngine {
         };
 
         // In HashMap speichern
-        self.active.insert(source_id.to_string(), ActiveRecordingInternal {
-            encoder,
-            info,
-        });
+        self.active.insert(
+            source_id.to_string(),
+            ActiveRecordingInternal { encoder, info },
+        );
 
         log::info!("Aufnahme gestartet: {} → {:?}", source_id, path);
         Ok(())
@@ -151,7 +149,9 @@ impl RecordingEngine {
     /// Aufnahme stoppen
     pub fn stop(&mut self, source_id: &str) -> Result<RecordingInfo, String> {
         // Aufnahme aus HashMap entfernen
-        let mut recording = self.active.remove(source_id)
+        let mut recording = self
+            .active
+            .remove(source_id)
             .ok_or_else(|| format!("Keine aktive Aufnahme für '{}'", source_id))?;
 
         // Encoder finalisieren
@@ -159,16 +159,19 @@ impl RecordingEngine {
 
         // Datei-Info auslesen
         let path = PathBuf::from(&recording.info.path);
-        let size_bytes = std::fs::metadata(&path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let size_bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
 
         // Dauer berechnen (Samples / Sample-Rate / Channels)
         let sample_rate = 48000.0;
         let channels = 2.0;
         let duration_secs = recording.info.samples_written as f32 / (sample_rate * channels);
 
-        log::info!("Aufnahme gestoppt: {} — {:.1}s, {} bytes", source_id, duration_secs, size_bytes);
+        log::info!(
+            "Aufnahme gestoppt: {} — {:.1}s, {} bytes",
+            source_id,
+            duration_secs,
+            size_bytes
+        );
 
         Ok(RecordingInfo {
             path: recording.info.path,
@@ -188,9 +191,7 @@ impl RecordingEngine {
 
     /// Alle aktiven Aufnahmen abrufen
     pub fn get_active_recordings(&self) -> Vec<ActiveRecording> {
-        self.active.values()
-            .map(|r| r.info.clone())
-            .collect()
+        self.active.values().map(|r| r.info.clone()).collect()
     }
 
     /// Prüfen ob Source aktuell aufnimmt

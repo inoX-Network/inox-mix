@@ -2,10 +2,10 @@
 //
 // Phase 2d: CPAL-Integration für Production-Ready Audio
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Device, Stream, StreamConfig, SampleFormat};
-use log::{info, error};
-use std::sync::{Arc, Mutex};
+use cpal::{Device, SampleFormat, Stream, StreamConfig};
+use log::{error, info};
 use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex};
 
 /// Audio-Sample (32-bit float, Stereo)
 #[derive(Debug, Clone, Copy, Default)]
@@ -52,7 +52,8 @@ impl CpalCaptureManager {
 
     /// Alle verfügbaren Input-Devices auflisten
     pub fn list_input_devices(&self) -> Result<Vec<String>, String> {
-        let devices: Vec<String> = self.host
+        let devices: Vec<String> = self
+            .host
             .input_devices()
             .map_err(|e| format!("Fehler beim Auflisten der Devices: {}", e))?
             .filter_map(|device| device.name().ok())
@@ -79,7 +80,8 @@ impl CpalCaptureManager {
             .input_devices()
             .map_err(|e| format!("Fehler beim Suchen des Devices: {}", e))?
             .find(|device| {
-                device.name()
+                device
+                    .name()
                     .map(|n| n.to_lowercase().contains(&name.to_lowercase()))
                     .unwrap_or(false)
             })
@@ -99,10 +101,12 @@ impl CpalCaptureManager {
         device: Device,
         stream_id: &str,
     ) -> Result<Arc<Mutex<VecDeque<AudioSample>>>, String> {
-        let device_name = device.name()
-            .unwrap_or_else(|_| "Unknown".to_string());
+        let device_name = device.name().unwrap_or_else(|_| "Unknown".to_string());
 
-        info!("🎙️  Starte Audio-Capture: {} (Device: {})", stream_id, device_name);
+        info!(
+            "🎙️  Starte Audio-Capture: {} (Device: {})",
+            stream_id, device_name
+        );
 
         // Prüfen ob bereits ein Stream existiert
         {
@@ -113,7 +117,8 @@ impl CpalCaptureManager {
         }
 
         // Device-Config abfragen
-        let config = device.default_input_config()
+        let config = device
+            .default_input_config()
             .map_err(|e| format!("Fehler beim Abrufen der Device-Config: {}", e))?;
 
         info!(
@@ -129,18 +134,26 @@ impl CpalCaptureManager {
 
         // Audio-Stream basierend auf Sample-Format erstellen
         let stream = match config.sample_format() {
-            SampleFormat::F32 => self.build_input_stream_f32(&device, config.into(), buffer_clone)?,
-            SampleFormat::I16 => self.build_input_stream_i16(&device, config.into(), buffer_clone)?,
+            SampleFormat::F32 => {
+                self.build_input_stream_f32(&device, config.into(), buffer_clone)?
+            }
+            SampleFormat::I16 => {
+                self.build_input_stream_i16(&device, config.into(), buffer_clone)?
+            }
             SampleFormat::U16 => {
                 return Err("U16 Sample-Format nicht unterstützt".to_string());
             }
             _ => {
-                return Err(format!("Sample-Format {:?} nicht unterstützt", config.sample_format()));
+                return Err(format!(
+                    "Sample-Format {:?} nicht unterstützt",
+                    config.sample_format()
+                ));
             }
         };
 
         // Stream starten
-        stream.play()
+        stream
+            .play()
             .map_err(|e| format!("Fehler beim Starten des Streams: {}", e))?;
 
         info!("✅ Audio-Capture gestartet: {}", stream_id);
@@ -152,7 +165,10 @@ impl CpalCaptureManager {
             _stream: stream,
         };
 
-        self.streams.lock().unwrap().insert(stream_id.to_string(), handle);
+        self.streams
+            .lock()
+            .unwrap()
+            .insert(stream_id.to_string(), handle);
 
         Ok(buffer)
     }
@@ -166,40 +182,41 @@ impl CpalCaptureManager {
     ) -> Result<Stream, String> {
         let channels = config.channels as usize;
 
-        device.build_input_stream(
-            &config,
-            move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                let mut buf = buffer.lock().unwrap();
+        device
+            .build_input_stream(
+                &config,
+                move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                    let mut buf = buffer.lock().unwrap();
 
-                // Audio-Daten in Ring-Buffer schreiben
-                // CPAL liefert interleaved samples: L, R, L, R, ...
-                for chunk in data.chunks_exact(channels) {
-                    let sample = if channels >= 2 {
-                        AudioSample {
-                            left: chunk[0],
-                            right: chunk[1],
-                        }
-                    } else {
-                        // Mono → Beide Kanäle gleich
-                        AudioSample {
-                            left: chunk[0],
-                            right: chunk[0],
-                        }
-                    };
+                    // Audio-Daten in Ring-Buffer schreiben
+                    // CPAL liefert interleaved samples: L, R, L, R, ...
+                    for chunk in data.chunks_exact(channels) {
+                        let sample = if channels >= 2 {
+                            AudioSample {
+                                left: chunk[0],
+                                right: chunk[1],
+                            }
+                        } else {
+                            // Mono → Beide Kanäle gleich
+                            AudioSample {
+                                left: chunk[0],
+                                right: chunk[0],
+                            }
+                        };
 
-                    // VecDeque als Ring-Buffer: Alte Samples entfernen wenn voll
-                    if buf.len() >= 2048 {
-                        buf.pop_front();
+                        // VecDeque als Ring-Buffer: Alte Samples entfernen wenn voll
+                        if buf.len() >= 2048 {
+                            buf.pop_front();
+                        }
+                        buf.push_back(sample);
                     }
-                    buf.push_back(sample);
-                }
-            },
-            |err| {
-                error!("CPAL Stream-Fehler: {}", err);
-            },
-            None, // Timeout
-        )
-        .map_err(|e| format!("Fehler beim Erstellen des Streams: {}", e))
+                },
+                |err| {
+                    error!("CPAL Stream-Fehler: {}", err);
+                },
+                None, // Timeout
+            )
+            .map_err(|e| format!("Fehler beim Erstellen des Streams: {}", e))
     }
 
     /// Input-Stream für I16-Samples erstellen
@@ -211,38 +228,39 @@ impl CpalCaptureManager {
     ) -> Result<Stream, String> {
         let channels = config.channels as usize;
 
-        device.build_input_stream(
-            &config,
-            move |data: &[i16], _: &cpal::InputCallbackInfo| {
-                let mut buf = buffer.lock().unwrap();
+        device
+            .build_input_stream(
+                &config,
+                move |data: &[i16], _: &cpal::InputCallbackInfo| {
+                    let mut buf = buffer.lock().unwrap();
 
-                // I16 → F32 Konvertierung
-                for chunk in data.chunks_exact(channels) {
-                    let sample = if channels >= 2 {
-                        AudioSample {
-                            left: i16_to_f32(chunk[0]),
-                            right: i16_to_f32(chunk[1]),
-                        }
-                    } else {
-                        let mono = i16_to_f32(chunk[0]);
-                        AudioSample {
-                            left: mono,
-                            right: mono,
-                        }
-                    };
+                    // I16 → F32 Konvertierung
+                    for chunk in data.chunks_exact(channels) {
+                        let sample = if channels >= 2 {
+                            AudioSample {
+                                left: i16_to_f32(chunk[0]),
+                                right: i16_to_f32(chunk[1]),
+                            }
+                        } else {
+                            let mono = i16_to_f32(chunk[0]);
+                            AudioSample {
+                                left: mono,
+                                right: mono,
+                            }
+                        };
 
-                    if buf.len() >= 2048 {
-                        buf.pop_front();
+                        if buf.len() >= 2048 {
+                            buf.pop_front();
+                        }
+                        buf.push_back(sample);
                     }
-                    buf.push_back(sample);
-                }
-            },
-            |err| {
-                error!("CPAL Stream-Fehler: {}", err);
-            },
-            None,
-        )
-        .map_err(|e| format!("Fehler beim Erstellen des Streams: {}", e))
+                },
+                |err| {
+                    error!("CPAL Stream-Fehler: {}", err);
+                },
+                None,
+            )
+            .map_err(|e| format!("Fehler beim Erstellen des Streams: {}", e))
     }
 
     /// Audio-Capture stoppen

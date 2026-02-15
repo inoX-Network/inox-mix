@@ -20,7 +20,7 @@ const ORANGE = '#ff8c00'; // Stream-Farbe
  * - Stereo VU-Meter
  */
 function StreamMonitor({
-  levels,
+  levels: _levels,
   peak = -60,
   rms = -60,
 }: StreamMonitorProps) {
