@@ -37,19 +37,39 @@ export default function ScenesControl() {
   };
 
   // Scene speichern
-  const saveScene = () => {
+  const saveScene = async () => {
     if (!newSceneName.trim()) return;
 
-    // TODO: Aktuellen Mixer-State serialisieren
-    const stateJson = JSON.stringify({ mixer: 'dummy_state' });
+    try {
+      // Aktuellen Mixer-State von allen Komponenten sammeln
+      const [strips, buses, fxChain, routing, master, voiceFx] = await Promise.all([
+        invoke('get_strips').catch(() => []),
+        invoke('get_buses').catch(() => []),
+        invoke('get_fx_chain').catch(() => []),
+        invoke('get_routing_matrix').catch(() => []),
+        invoke('get_master').catch(() => ({})),
+        invoke('get_voice_fx_state').catch(() => ({})),
+      ]);
 
-    invoke('save_scene', { name: newSceneName, stateJson })
-      .then(() => {
-        setShowSaveModal(false);
-        setNewSceneName('');
-        loadScenes();
-      })
-      .catch(console.error);
+      // State als JSON serialisieren
+      const stateJson = JSON.stringify({
+        strips,
+        buses,
+        fx_chain: fxChain,
+        routing,
+        master,
+        voice_fx: voiceFx,
+        timestamp: Date.now(),
+      });
+
+      await invoke('save_scene', { name: newSceneName, stateJson });
+
+      setShowSaveModal(false);
+      setNewSceneName('');
+      loadScenes();
+    } catch (err) {
+      console.error('Fehler beim Speichern der Scene:', err);
+    }
   };
 
   return (

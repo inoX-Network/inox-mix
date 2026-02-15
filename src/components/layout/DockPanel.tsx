@@ -1,5 +1,5 @@
 // Komponente: DockPanel — dockbares/andockbares Panel-System
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 /** Dockbares Panel das verschoben und angedockt werden kann */
 interface DockPanelProps {
@@ -27,6 +27,8 @@ function DockPanel({
   const [size, setSize] = useState(initialSize);
   const [isResizing, setIsResizing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
+  const resizeStartSize = useRef({ width: 0, height: 0 });
 
   const handleDockToggle = () => {
     setIsDocked(!isDocked);
@@ -34,16 +36,55 @@ function DockPanel({
 
   const handleDragStart = (e: React.MouseEvent) => {
     if (isDocked) return;
+    e.preventDefault();
     setIsDragging(true);
-    // TODO: Implement drag logic
+    dragStartPos.current = {
+      x: e.clientX - position.x,
+      y: e.clientY - position.y,
+    };
   };
 
   const handleResizeStart = (e: React.MouseEvent) => {
     if (isDocked) return;
+    e.preventDefault();
     e.stopPropagation();
     setIsResizing(true);
-    // TODO: Implement resize logic
+    resizeStartSize.current = {
+      width: e.clientX - position.x,
+      height: e.clientY - position.y,
+    };
   };
+
+  // Drag & Resize Event-Handling
+  useEffect(() => {
+    if (!isDragging && !isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        setPosition({
+          x: e.clientX - dragStartPos.current.x,
+          y: e.clientY - dragStartPos.current.y,
+        });
+      } else if (isResizing) {
+        const newWidth = Math.max(200, e.clientX - position.x);
+        const newHeight = Math.max(150, e.clientY - position.y);
+        setSize({ width: newWidth, height: newHeight });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, isResizing, position.x, position.y]);
 
   // Angedockt: Normales Panel im Layout
   if (isDocked) {
