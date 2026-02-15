@@ -36,11 +36,27 @@ Complete audio mixer with all core features implemented.
 - Quick Calibrate (Auto Mic Configuration)
 
 #### System
-- PipeWire Integration Phase 2b
-  - Dynamic Node-Discovery
-  - Virtual Bus Nodes (A1-B2 via pw-loopback)
-  - Audio-Device Listing
+- **PipeWire Integration Phase 2d (COMPLETED)**
+  - ✅ Dynamic Node-Discovery via pw-cli
+  - ✅ Virtual Bus Nodes (A1-B2 via pw-loopback)
+  - ✅ Audio-Device Listing
+  - ✅ **CPAL Audio-Capture** - Echtes Mikrofon-Input statt Simulation!
+    - Thread-safe Architektur (CPAL in separatem Thread)
+    - F32 + I16 Sample-Format Support
+    - Ring-Buffer mit VecDeque (2048 Samples)
+    - Graceful Fallback auf Simulation
 - Echtzeit-Metering Service (60fps)
+- **Sidechain Ducking (COMPLETED)**
+  - RMS-basierter Envelope-Follower
+  - Attack/Release Envelope (10-500ms / 50-2000ms)
+  - Gain-Reduktion: 0 bis -30 dB
+  - Threshold: -50 bis 0 dB
+  - 7 Unit-Tests (alle bestanden ✅)
+- **Profanity Bleeper (COMPLETED)**
+  - 5 Modi: Beep, Mute, Noise, Reverse, Custom
+  - Konfigurierbare Frequenz (200-2000 Hz)
+  - Lautstärke: -30 bis 0 dB
+  - 8 Unit-Tests (alle bestanden ✅)
 - Settings Page (5 Categories)
   - Audio (Sample Rate, Buffer, Bit-Depth, Devices)
   - Recording (Path, Format, Auto-Record)
@@ -81,8 +97,21 @@ Complete audio mixer with all core features implemented.
 - GitHub Actions Workflow (release.yml)
 - AppImage Support
 - .deb Package Support
+- **Flatpak Package (COMPLETED)** ✅
+  - Freedesktop Runtime 23.08
+  - Desktop-Integration (Icon, .desktop, AppStream)
+  - Sandbox-Isolation
+  - Build-Script (`flatpak/build.sh`)
+  - README + Quick-Start Guide
+- **AUR Package (COMPLETED)** ✅
+  - PKGBUILD für Arch Linux
+  - Post-Install Hooks
+  - Test-Build-Script (`aur/test-build.sh`)
+  - .SRCINFO Metadata
+  - Installation via `yay -S inox-mix`
 - Automatic Release Creation
 - Update Manifest Generation
+- **MIT License** hinzugefügt
 
 ### 📚 Documentation
 - README.md with Quick Start Guide
@@ -128,9 +157,9 @@ Complete audio mixer with all core features implemented.
 ### [0.4.0] - Planned
 
 #### Audio Processing Phase 2
-- [ ] Real PipeWire Audio-Capture (replace simulation)
+- [x] Real PipeWire Audio-Capture (✅ COMPLETED in v0.3.0 - CPAL Integration)
 - [ ] App-Audio Routing (per-Application)
-- [ ] DSP-Processing with real audio
+- [ ] DSP-Processing with real audio (Ducking ✅ COMPLETED, Bleeper ✅ COMPLETED)
 - [ ] Live Denoise Integration
 - [ ] STT Integration (VOSK/Whisper)
 
@@ -141,8 +170,8 @@ Complete audio mixer with all core features implemented.
 - [ ] VU-Meter Customization
 
 #### Platform
-- [ ] Flatpak Package
-- [ ] AUR Package (Arch Linux)
+- [x] Flatpak Package (✅ COMPLETED in v0.3.0)
+- [x] AUR Package (Arch Linux) (✅ COMPLETED in v0.3.0)
 - [ ] System Tray Integration
 - [ ] Auto-Start Support
 

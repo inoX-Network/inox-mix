@@ -385,20 +385,10 @@ pub fn remove_audio_link(source_id: &str, bus_id: &str) -> Result<(), String> {
 ///
 /// Phase 2b: Erweitert um dynamische Node-Discovery via PipeWire-Registry
 pub fn list_audio_devices() -> Result<Vec<AudioDevice>, String> {
-    // Phase 2b: Versuche zuerst Registry-basierte Discovery
-    // Fallback auf pw-cli wenn Registry nicht verfügbar
-    match list_audio_devices_via_registry() {
-        Ok(devices) if !devices.is_empty() => {
-            info!("PipeWire Nodes via Registry: {}", devices.len());
-            return Ok(devices);
-        }
-        Err(e) => {
-            warn!("Registry-Discovery fehlgeschlagen, Fallback auf pw-cli: {}", e);
-        }
-        _ => {}
-    }
+    // Phase 2d Fix: Registry-Scan deaktiviert wegen Konflikt mit CPAL
+    // TODO Phase 3: Registry-Scan ohne globales init() implementieren
 
-    // Fallback: pw-cli basierte Discovery
+    // pw-cli basierte Discovery
     let output = std::process::Command::new("pw-cli")
         .arg("list-objects")
         .arg("Node")

@@ -1,0 +1,28 @@
+post_install() {
+    # Icon-Cache aktualisieren
+    gtk-update-icon-cache -q -t -f usr/share/icons/hicolor
+
+    # Desktop-Datenbank aktualisieren
+    update-desktop-database -q
+
+    echo ""
+    echo "==> inoX-MIX wurde erfolgreich installiert!"
+    echo "==> Starte die App mit: inox-mix"
+    echo ""
+    echo "==> Hinweise:"
+    echo "    - PipeWire muss laufen: systemctl --user status pipewire"
+    echo "    - WirePlumber empfohlen: systemctl --user enable --now wireplumber"
+    echo ""
+}
+
+post_upgrade() {
+    post_install
+}
+
+post_remove() {
+    # Icon-Cache aktualisieren
+    gtk-update-icon-cache -q -t -f usr/share/icons/hicolor
+
+    # Desktop-Datenbank aktualisieren
+    update-desktop-database -q
+}

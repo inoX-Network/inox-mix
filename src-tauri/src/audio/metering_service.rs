@@ -1,11 +1,13 @@
 // Modul: audio/metering_service — Echtzeit-Metering Service mit Tauri Events
-use super::metering::{MeteringEngine, StripLevels};
+use super::metering::MeteringEngine;
 use super::pipewire;
+use super::cpal_capture::{CpalCaptureManager, AudioSample};
 use log::{info, error, warn};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
+use std::collections::VecDeque;
 use tauri::{AppHandle, Emitter};
 
 /// Metering-Update-Intervall (16ms ≈ 60fps)
@@ -15,10 +17,16 @@ const METERING_INTERVAL_MS: u64 = 16;
 pub struct MeteringService {
     /// Metering-Engine (Thread-sicher)
     engine: Arc<Mutex<MeteringEngine>>,
+    /// Audio-Buffer für jeden Strip (von CPAL gefüllt)
+    audio_buffers: Arc<Mutex<std::collections::HashMap<String, Arc<Mutex<VecDeque<AudioSample>>>>>>,
     /// Flag ob Service läuft
     running: Arc<AtomicBool>,
-    /// Thread-Handle
+    /// Thread-Handle für Metering-Loop
     thread_handle: Option<thread::JoinHandle<()>>,
+    /// Thread-Handle für CPAL-Manager (separate Thread wegen !Send)
+    cpal_thread_handle: Option<thread::JoinHandle<()>>,
+    /// Use Real Audio (statt Simulation)
+    use_real_audio: Arc<AtomicBool>,
 }
 
 impl MeteringService {
@@ -26,9 +34,13 @@ impl MeteringService {
     pub fn start(app_handle: AppHandle) -> Self {
         let engine = Arc::new(Mutex::new(MeteringEngine::new()));
         let running = Arc::new(AtomicBool::new(true));
+        let use_real_audio = Arc::new(AtomicBool::new(true)); // Versuche CPAL, falle zurück auf Simulation
+        let audio_buffers = Arc::new(Mutex::new(std::collections::HashMap::new()));
 
         let engine_clone = Arc::clone(&engine);
         let running_clone = Arc::clone(&running);
+        let use_real_audio_clone = Arc::clone(&use_real_audio);
+        let audio_buffers_clone = Arc::clone(&audio_buffers);
 
         // ═══════════════════════════════════════════════════════════════
         // Phase 2c: Dynamische Strip-Registrierung via PipeWire Discovery
@@ -104,20 +116,87 @@ impl MeteringService {
             }
         }
 
+        // CPAL Audio-Capture in separatem Thread starten (da Streams nicht Send sind)
+        let cpal_thread_handle = if use_real_audio.load(Ordering::Relaxed) {
+            let audio_buffers_cpal = Arc::clone(&audio_buffers);
+            let use_real_audio_cpal = Arc::clone(&use_real_audio);
+            let running_cpal = Arc::clone(&running);
+            let engine_cpal = Arc::clone(&engine);
+
+            thread::Builder::new()
+                .name("cpal-capture".to_string())
+                .spawn(move || {
+                    info!("🎤 CPAL Capture-Thread gestartet");
+
+                    // CPAL Manager in diesem Thread erstellen (Streams bleiben hier!)
+                    let mut cpal_manager = match CpalCaptureManager::new() {
+                        Ok(manager) => {
+                            info!("✅ CPAL initialisiert in Capture-Thread");
+                            manager
+                        }
+                        Err(e) => {
+                            warn!("⚠️  CPAL-Init fehlgeschlagen: {} - Nutze Simulation", e);
+                            use_real_audio_cpal.store(false, Ordering::Relaxed);
+                            return;
+                        }
+                    };
+
+                    // Default Input-Device starten
+                    if let Ok(device) = cpal_manager.get_default_input_device() {
+                        match cpal_manager.start_capture(device, "default-input") {
+                            Ok(buffer) => {
+                                audio_buffers_cpal.lock().unwrap().insert("default-input".to_string(), buffer);
+                                info!("🎤 Default Input-Device Capture gestartet");
+
+                                // Strip für Default-Input registrieren
+                                if let Ok(mut eng) = engine_cpal.lock() {
+                                    eng.register_strip("default-input");
+                                }
+                            }
+                            Err(e) => {
+                                warn!("⚠️  Default-Input Capture fehlgeschlagen: {}", e);
+                                use_real_audio_cpal.store(false, Ordering::Relaxed);
+                            }
+                        }
+                    }
+
+                    // CPAL-Thread läuft weiter solange MeteringService aktiv ist
+                    // Streams müssen am Leben bleiben!
+                    while running_cpal.load(Ordering::Relaxed) {
+                        thread::sleep(Duration::from_millis(100));
+                    }
+
+                    info!("🎤 CPAL Capture-Thread beendet");
+                    cpal_manager.shutdown();
+                })
+                .ok()
+        } else {
+            None
+        };
+
         // Metering-Thread starten
         let thread_handle = thread::Builder::new()
             .name("metering-service".to_string())
             .spawn(move || {
-                Self::run_metering_loop(engine_clone, running_clone, app_handle);
+                Self::run_metering_loop(
+                    engine_clone,
+                    running_clone,
+                    use_real_audio_clone,
+                    audio_buffers_clone,
+                    app_handle
+                );
             })
             .ok();
 
-        info!("Metering-Service gestartet");
+        info!("✅ Metering-Service gestartet");
 
         Self {
             engine,
+            audio_buffers,
             running,
             thread_handle,
+            cpal_thread_handle,
+            use_real_audio,
         }
     }
 
@@ -125,6 +204,8 @@ impl MeteringService {
     fn run_metering_loop(
         engine: Arc<Mutex<MeteringEngine>>,
         running: Arc<AtomicBool>,
+        use_real_audio: Arc<AtomicBool>,
+        audio_buffers: Arc<Mutex<std::collections::HashMap<String, Arc<Mutex<VecDeque<AudioSample>>>>>>,
         app_handle: AppHandle,
     ) {
         while running.load(Ordering::Relaxed) {
@@ -136,26 +217,48 @@ impl MeteringService {
                 Vec::new()
             };
 
-            // Phase 2b: Audio-Daten aus PipeWire-Capture
-            // TODO Phase 2c: Ersetze Simulation durch echte Capture
-            //
-            // Implementierung:
-            // 1. AudioCaptureManager.start_capture() für jeden registrierten Strip
-            // 2. Audio-Samples aus Ring-Buffer (Consumer) lesen
-            // 3. MeteringEngine.process_buffer() mit echten Samples füttern
-            //
-            // Für jetzt: Simulierte Daten für registrierte Strips
-            if let Ok(mut eng) = engine.lock() {
-                let registered_strips: Vec<String> = eng.get_levels()
-                    .iter()
-                    .map(|l| l.strip_id.clone())
-                    .collect();
+            // ═══════════════════════════════════════════════════════════════
+            // Phase 2d: ECHTES AUDIO via CPAL oder Fallback Simulation
+            // ═══════════════════════════════════════════════════════════════
 
-                if !registered_strips.is_empty() {
-                    simulate_audio_for_strips(
-                        &mut eng,
-                        &registered_strips.iter().map(|s| s.as_str()).collect::<Vec<_>>()
-                    );
+            if use_real_audio.load(Ordering::Relaxed) {
+                // ✅ ECHTES AUDIO von CPAL
+                if let Ok(mut eng) = engine.lock() {
+                    let buffers = audio_buffers.lock().unwrap();
+
+                    for (strip_id, buffer_arc) in buffers.iter() {
+                        let mut buffer = buffer_arc.lock().unwrap();
+
+                        // Samples aus Buffer lesen (max 256 Samples ≈ 5.3ms @ 48kHz)
+                        let sample_count = buffer.len().min(256);
+                        let mut samples = Vec::with_capacity(sample_count * 2); // Stereo
+
+                        for _ in 0..sample_count {
+                            if let Some(sample) = buffer.pop_front() {
+                                samples.push(sample.left);
+                                samples.push(sample.right);
+                            }
+                        }
+
+                        if !samples.is_empty() {
+                            eng.process_buffer(strip_id, &samples, 2);
+                        }
+                    }
+                }
+            } else {
+                // ⚠️  SIMULATION (Fallback)
+                if let Ok(mut eng) = engine.lock() {
+                    let registered_strips: Vec<String> = eng.get_levels()
+                        .iter()
+                        .map(|l| l.strip_id.clone())
+                        .collect();
+
+                    if !registered_strips.is_empty() {
+                        simulate_audio_for_strips(
+                            &mut eng,
+                            &registered_strips.iter().map(|s| s.as_str()).collect::<Vec<_>>()
+                        );
+                    }
                 }
             }
 
@@ -198,14 +301,20 @@ impl MeteringService {
 
     /// Metering-Service stoppen
     pub fn stop(&mut self) {
-        info!("Metering-Service wird gestoppt...");
+        info!("🛑 Metering-Service wird gestoppt...");
         self.running.store(false, Ordering::Relaxed);
 
+        // Metering-Thread stoppen
         if let Some(handle) = self.thread_handle.take() {
             let _ = handle.join();
         }
 
-        info!("Metering-Service gestoppt");
+        // CPAL Capture-Thread stoppen
+        if let Some(handle) = self.cpal_thread_handle.take() {
+            let _ = handle.join();
+        }
+
+        info!("✅ Metering-Service gestoppt");
     }
 }
 

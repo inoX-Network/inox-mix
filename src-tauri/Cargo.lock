@@ -1869,6 +1869,7 @@ name = "inox-mix"
 version = "0.3.0"
 dependencies = [
  "chrono",
+ "cpal",
  "crossbeam-channel",
  "dirs 5.0.1",
  "env_logger",

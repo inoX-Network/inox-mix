@@ -2,6 +2,7 @@
 
 pub mod pipewire;
 pub mod capture;
+pub mod cpal_capture;
 pub mod mixer;
 pub mod metering;
 pub mod metering_service;

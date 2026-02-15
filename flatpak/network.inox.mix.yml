@@ -1,0 +1,99 @@
+app-id: network.inox.mix
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node18
+
+command: inox-mix
+
+finish-args:
+  # X11 + Wayland Zugriff
+  - --socket=x11
+  - --socket=wayland
+  # PulseAudio/PipeWire Zugriff
+  - --socket=pulseaudio
+  # Netzwerk für Updates
+  - --share=network
+  # Dateisystem-Zugriff (für Config und Recordings)
+  - --filesystem=xdg-config/inox-mix:create
+  - --filesystem=xdg-data/inox-mix:create
+  - --filesystem=xdg-documents
+  # D-Bus
+  - --own-name=network.inox.mix
+  # Hardware-Zugriff für Audio
+  - --device=all
+
+modules:
+  # Node.js für Frontend-Build
+  - name: node
+    buildsystem: simple
+    build-commands:
+      - /usr/lib/sdk/node18/install.sh
+    sources:
+      - type: script
+        dest-filename: install.sh
+        commands:
+          - cp -r /usr/lib/sdk/node18/bin/* /app/bin/
+          - cp -r /usr/lib/sdk/node18/lib/* /app/lib/
+          - cp -r /usr/lib/sdk/node18/share/* /app/share/
+          - cp -r /usr/lib/sdk/node18/include/* /app/include/
+
+  # Rust Toolchain
+  - name: rust
+    buildsystem: simple
+    build-commands:
+      - /usr/lib/sdk/rust-stable/install.sh
+    sources:
+      - type: script
+        dest-filename: install.sh
+        commands:
+          - cp -r /usr/lib/sdk/rust-stable/bin/* /app/bin/
+          - cp -r /usr/lib/sdk/rust-stable/lib/* /app/lib/
+
+  # PipeWire Development Files
+  - name: pipewire-dev
+    buildsystem: meson
+    config-opts:
+      - -Dgstreamer=disabled
+      - -Dexamples=disabled
+      - -Dtests=disabled
+      - -Dman=disabled
+    sources:
+      - type: archive
+        url: https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/0.3.86/pipewire-0.3.86.tar.gz
+        sha256: 3c52f1e9c6857d74d802c9c3d47c4cd5e099e65a9c7c1cce8b0c2e68ad2e2f3e
+
+  # inoX-MIX Hauptanwendung
+  - name: inox-mix
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node18/bin
+      env:
+        CARGO_HOME: /run/build/inox-mix/cargo
+        NPM_CONFIG_CACHE: /run/build/inox-mix/npm-cache
+    build-commands:
+      # Frontend bauen
+      - cd /run/build/inox-mix && npm install
+      - cd /run/build/inox-mix && npm run build
+
+      # Rust Backend bauen
+      - cd /run/build/inox-mix/src-tauri && cargo build --release --locked
+
+      # Binary installieren
+      - install -Dm755 src-tauri/target/release/inox-mix /app/bin/inox-mix
+
+      # Desktop File installieren
+      - install -Dm644 flatpak/network.inox.mix.desktop /app/share/applications/network.inox.mix.desktop
+
+      # AppStream Metadata installieren
+      - install -Dm644 flatpak/network.inox.mix.metainfo.xml /app/share/metainfo/network.inox.mix.metainfo.xml
+
+      # Icon installieren
+      - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/network.inox.mix.png
+      - install -Dm644 src-tauri/icons/256x256.png /app/share/icons/hicolor/256x256/apps/network.inox.mix.png
+
+    sources:
+      - type: dir
+        path: ..

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=inoX-MIX
+GenericName=Audio Mixer
+Comment=Professional Audio Mixer for Linux Streamers
+Exec=inox-mix
+Icon=network.inox.mix
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Mixer;
+Keywords=audio;mixer;streaming;pipewire;podcasting;
+StartupNotify=true
+StartupWMClass=inox-mix

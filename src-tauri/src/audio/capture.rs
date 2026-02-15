@@ -3,7 +3,7 @@
 // Phase 2c: Placeholder-Implementierung
 // Phase 2d: CPAL-Integration für echtes Audio geplant
 use ringbuf::HeapRb;
-use log::{info, warn};
+use log::info;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};

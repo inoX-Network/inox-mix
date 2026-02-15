@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>network.inox.mix</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>inoX-MIX</name>
+  <summary>Professional Audio Mixer for Linux Streamers</summary>
+
+  <description>
+    <p>
+      inoX-MIX ist ein professioneller Desktop Audio-Mixer speziell entwickelt für Linux Streamer,
+      Podcaster und Content-Ersteller.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>PipeWire-Integration für modernes Linux-Audio</li>
+      <li>Echtzeit VU-Metering (Peak + RMS) mit 60fps</li>
+      <li>Sidechain-Ducking (Musik leiser bei Sprache)</li>
+      <li>Profanity-Bleeper mit 5 Modi (Beep, Mute, Noise, Reverse, Custom)</li>
+      <li>8-stufige FX-Chain (HPF, Gate, De-Esser, EQ, Compressor, Limiter, Auto-Gain)</li>
+      <li>Soundboard mit Hotkey-Support</li>
+      <li>Virtuelle Busse (A1, A2, B1, B2)</li>
+      <li>Scene-System für schnelle Umschaltung</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">network.inox.mix.desktop</launchable>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Hauptansicht des inoX-MIX Audio Mixers</caption>
+    </screenshot>
+  </screenshots>
+
+  <url type="homepage">https://inox-network.de/inox-mix</url>
+  <url type="bugtracker">https://github.com/inox-network/inox-mix/issues</url>
+  <url type="help">https://github.com/inox-network/inox-mix/wiki</url>
+
+  <developer_name>inoX-Network</developer_name>
+
+  <releases>
+    <release version="0.3.0" date="2026-02-15">
+      <description>
+        <p>Release 0.3.0 - Audio-Capture Integration</p>
+        <ul>
+          <li>Echtes Audio-Capture via CPAL</li>
+          <li>Sidechain-Ducking implementiert</li>
+          <li>Profanity-Bleeper mit 5 Modi</li>
+          <li>Echtzeit-Metering mit PipeWire</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1" />
+
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+  </categories>
+
+  <keywords>
+    <keyword>audio</keyword>
+    <keyword>mixer</keyword>
+    <keyword>streaming</keyword>
+    <keyword>pipewire</keyword>
+    <keyword>podcasting</keyword>
+  </keywords>
+</component>

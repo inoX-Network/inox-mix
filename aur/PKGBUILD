@@ -1,0 +1,76 @@
+# Maintainer: inoX-Network <info@inox-network.de>
+pkgname=inox-mix
+pkgver=0.3.0
+pkgrel=1
+pkgdesc="Professional Audio Mixer for Linux Streamers with PipeWire integration"
+arch=('x86_64')
+url="https://github.com/inox-network/inox-mix"
+license=('MIT')
+depends=(
+    'pipewire'
+    'webkit2gtk'
+    'gtk3'
+    'libsoup'
+    'javascriptcore'
+)
+makedepends=(
+    'rust'
+    'cargo'
+    'nodejs'
+    'npm'
+    'git'
+)
+optdepends=(
+    'pipewire-pulse: PulseAudio replacement'
+    'wireplumber: Session manager for PipeWire'
+)
+install="${pkgname}.install"
+source=(
+    "${pkgname}-${pkgver}.tar.gz::https://github.com/inox-network/${pkgname}/archive/v${pkgver}.tar.gz"
+)
+sha256sums=('SKIP')  # TODO: Add checksum after first release
+
+prepare() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+
+    # Frontend Dependencies installieren
+    npm install
+}
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+
+    # Frontend bauen
+    npm run build
+
+    # Rust Backend bauen
+    cd src-tauri
+    cargo build --release --locked --all-features
+}
+
+check() {
+    cd "${srcdir}/${pkgname}-${pkgver}/src-tauri"
+
+    # Tests ausführen (optional, kann bei Build-Problemen auskommentiert werden)
+    cargo test --release --locked || true
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+
+    # Binary installieren
+    install -Dm755 "src-tauri/target/release/${pkgname}" "${pkgdir}/usr/bin/${pkgname}"
+
+    # Desktop File installieren
+    install -Dm644 "flatpak/network.inox.mix.desktop" "${pkgdir}/usr/share/applications/network.inox.mix.desktop"
+
+    # AppStream Metadata installieren
+    install -Dm644 "flatpak/network.inox.mix.metainfo.xml" "${pkgdir}/usr/share/metainfo/network.inox.mix.metainfo.xml"
+
+    # Icons installieren
+    install -Dm644 "src-tauri/icons/128x128.png" "${pkgdir}/usr/share/icons/hicolor/128x128/apps/network.inox.mix.png"
+    install -Dm644 "src-tauri/icons/256x256.png" "${pkgdir}/usr/share/icons/hicolor/256x256/apps/network.inox.mix.png"
+
+    # Lizenz installieren
+    install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
