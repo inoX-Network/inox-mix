@@ -97,6 +97,35 @@ fn set_config(key: String, value: String, state: tauri::State<'_, AppState>) -> 
         .map_err(|e| format!("Config-Fehler: {}", e))
 }
 
+/// Gesamte Config als JSON exportieren
+#[tauri::command]
+fn export_config(state: tauri::State<'_, AppState>) -> Result<String, String> {
+    // TODO Phase 2: Komplette Config aus DB lesen und als JSON serialisieren
+    // Stub: Minimale Konfiguration zurückgeben
+    Ok(serde_json::json!({
+        "version": "0.3",
+        "app": "inoX-MIX",
+        "exported_at": chrono::Utc::now().to_rfc3339(),
+        "audio": {
+            "sample_rate": 48000,
+            "buffer_size": 256,
+            "bit_depth": "32-float"
+        },
+        "ui": {
+            "language": "DE",
+            "theme": "Dark"
+        }
+    }).to_string())
+}
+
+/// Config aus JSON importieren
+#[tauri::command]
+fn import_config(config_json: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    // TODO Phase 2: JSON parsen und in DB schreiben
+    // Stub: Erfolgsmeldung zurückgeben
+    Ok(())
+}
+
 // --- Mixer Commands (Modul 02) ---
 
 /// Alle Input-Strips als sortierte Liste abrufen
@@ -717,6 +746,8 @@ fn main() {
             get_system_info,
             get_config,
             set_config,
+            export_config,
+            import_config,
             get_strips,
             set_strip_volume,
             set_strip_gain,
