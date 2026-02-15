@@ -24,3 +24,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Build-Artefakte
+*.tar.gz
+*.deb
+*.rpm
+checksums.*
