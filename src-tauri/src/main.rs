@@ -15,6 +15,7 @@ use recording::{RecordingEngine, RecordingFormat, RecordingInfo, ActiveRecording
 use config::presets::{SceneManager, Scene, SceneInfo};
 use streamer::soundboard::{SoundboardManager, SoundEntry};
 use streamer::voice_fx::{VoiceFxManager, VoiceFxState, VoiceFxPreset};
+use updater::{check_for_updates, install_update};
 
 use audio::bus::{BusManager, OutputBus};
 use audio::mixer::{InputStrip, MixerState};
@@ -602,6 +603,8 @@ fn main() {
             set_voice_fx_preset,
             set_voice_fx_enabled,
             set_voice_fx_drywet,
+            check_for_updates,
+            install_update,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Tauri-Anwendung");

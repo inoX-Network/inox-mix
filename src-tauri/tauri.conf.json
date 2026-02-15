@@ -26,12 +26,34 @@
       "csp": null
     }
   },
+  "bundle": {
+    "active": true,
+    "targets": ["appimage", "deb"],
+    "identifier": "network.inox.mix",
+    "publisher": "inoX-Network",
+    "icon": [
+      "icons/128x128.png",
+      "icons/256x256.png",
+      "icons/icon.png"
+    ],
+    "resources": [],
+    "copyright": "Copyright (c) 2026 inoX-Network",
+    "category": "AudioVideo",
+    "shortDescription": "Professional Audio Mixer for Linux Streamers",
+    "longDescription": "inoX-MIX ist ein professioneller Desktop Audio-Mixer für Linux Streamer mit PipeWire-Integration, Voice FX, Soundboard und AI-basierter Geräuschunterdrückung."
+  },
   "plugins": {
     "updater": {
+      "active": true,
+      "dialog": true,
       "endpoints": [
-        "https://github.com/inox-network/inox-mix/releases/latest/download/latest.json"
+        "https://github.com/inox-network/inox-mix/releases/latest/download/latest.json",
+        "https://vps.inox-network.de/api/update/latest.json"
       ],
-      "pubkey": ""
+      "pubkey": "",
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }
