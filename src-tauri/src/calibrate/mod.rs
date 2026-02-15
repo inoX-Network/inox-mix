@@ -24,13 +24,27 @@ pub struct CalibrateEngine {
 impl CalibrateEngine {
     /// Neue Kalibrierungs-Engine erstellen
     pub fn new() -> Self {
-        // TODO: Initialisieren
-        todo!("CalibrateEngine::new")
+        Self {
+            // Phase 1: Minimale Struktur
+        }
     }
 
-    /// Quick Calibrate durchführen (misst ~3 Sekunden Stille)
+    /// Quick Calibrate durchführen (misst ~10 Sekunden Audio)
     pub fn run_calibration(&mut self, _samples: &[f32]) -> Result<CalibrationResult, String> {
-        // TODO: Rauschpegel messen, Empfehlungen berechnen
-        todo!("CalibrateEngine::run_calibration")
+        // TODO Phase 2: Echte Kalibrierung implementieren
+        // - RMS über 10 Sekunden messen
+        // - Noise Floor in Sprach-Pausen erkennen
+        // - Peak-Level während Sprechen messen
+        // - Empfohlenen Gain berechnen (Ziel: -18dB RMS)
+        // - Gate-Threshold = Noise Floor + 6dB
+        // - HPF bei ~80Hz empfehlen
+        //
+        // Phase 1: Mock-Ergebnis zurückgeben
+        Ok(CalibrationResult {
+            recommended_gain_db: 0.0,
+            noise_floor_db: -60.0,
+            recommended_gate_db: -54.0, // Noise + 6dB
+            recommended_hpf_hz: 80.0,
+        })
     }
 }

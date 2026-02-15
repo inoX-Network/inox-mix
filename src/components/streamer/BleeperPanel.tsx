@@ -58,18 +58,28 @@ function BleeperPanel({
     }
   };
 
-  const handleToneChange = (value: number) => {
+  const handleToneChange = async (value: number) => {
     // 200Hz bis 2000Hz
     const hzValue = 200 + value * 1800;
     setTone(hzValue);
-    // TODO: Invoke backend command
+
+    try {
+      await invoke('set_bleeper_tone', { toneHz: hzValue });
+    } catch (err) {
+      console.error('Fehler beim Setzen des Bleeper-Tons:', err);
+    }
   };
 
-  const handleVolumeChange = (value: number) => {
+  const handleVolumeChange = async (value: number) => {
     // -30dB bis 0dB
     const dbValue = value * -30;
     setVolume(dbValue);
-    // TODO: Invoke backend command
+
+    try {
+      await invoke('set_bleeper_volume', { volumeDb: dbValue });
+    } catch (err) {
+      console.error('Fehler beim Setzen der Bleeper-Lautstärke:', err);
+    }
   };
 
   return (

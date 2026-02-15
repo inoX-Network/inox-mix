@@ -41,32 +41,52 @@ function DuckingPanel({
     }
   };
 
-  const handleAmountChange = (value: number) => {
+  const handleAmountChange = async (value: number) => {
     // -30dB bis 0dB
     const dbValue = value * -30;
     setAmount(dbValue);
-    // TODO: Invoke backend command
+
+    try {
+      await invoke('set_ducking_amount', { amountDb: dbValue });
+    } catch (err) {
+      console.error('Fehler beim Setzen des Ducking-Amount:', err);
+    }
   };
 
-  const handleAttackChange = (value: number) => {
+  const handleAttackChange = async (value: number) => {
     // 10ms bis 500ms
     const msValue = 10 + value * 490;
     setAttack(msValue);
-    // TODO: Invoke backend command
+
+    try {
+      await invoke('set_ducking_attack', { attackMs: msValue });
+    } catch (err) {
+      console.error('Fehler beim Setzen des Ducking-Attack:', err);
+    }
   };
 
-  const handleReleaseChange = (value: number) => {
+  const handleReleaseChange = async (value: number) => {
     // 50ms bis 2000ms
     const msValue = 50 + value * 1950;
     setRelease(msValue);
-    // TODO: Invoke backend command
+
+    try {
+      await invoke('set_ducking_release', { releaseMs: msValue });
+    } catch (err) {
+      console.error('Fehler beim Setzen des Ducking-Release:', err);
+    }
   };
 
-  const handleThresholdChange = (value: number) => {
+  const handleThresholdChange = async (value: number) => {
     // -50dB bis 0dB
     const dbValue = value * -50;
     setThreshold(dbValue);
-    // TODO: Invoke backend command
+
+    try {
+      await invoke('set_ducking_threshold', { thresholdDb: dbValue });
+    } catch (err) {
+      console.error('Fehler beim Setzen des Ducking-Threshold:', err);
+    }
   };
 
   return (

@@ -15,6 +15,9 @@ use recording::{RecordingEngine, RecordingFormat, RecordingInfo, ActiveRecording
 use config::presets::{SceneManager, Scene, SceneInfo};
 use streamer::soundboard::{SoundboardManager, SoundEntry};
 use streamer::voice_fx::{VoiceFxManager, VoiceFxState, VoiceFxPreset};
+use streamer::ducking::{DuckingEngine, DuckingParams};
+use streamer::bleeper::{BleeperEngine, BleepMode};
+use calibrate::{CalibrateEngine, CalibrationResult};
 use updater::{check_for_updates, install_update};
 
 use audio::bus::{BusManager, OutputBus};
@@ -54,6 +57,12 @@ struct AppState {
     soundboard: Mutex<SoundboardManager>,
     /// Voice-FX-Manager für Stimm-Effekte
     voice_fx: Mutex<VoiceFxManager>,
+    /// Ducking-Engine für Sidechain-Kompression
+    ducking: Mutex<DuckingEngine>,
+    /// Bleeper-Engine für Profanity-Zensur
+    bleeper: Mutex<BleeperEngine>,
+    /// Calibrate-Engine für Mikrofon-Kalibrierung
+    calibrate: Mutex<CalibrateEngine>,
 }
 
 // --- Tauri Commands ---
@@ -460,6 +469,136 @@ fn set_voice_fx_drywet(dry_wet: f32, state: tauri::State<'_, AppState>) -> Resul
     voice_fx.set_dry_wet(dry_wet)
 }
 
+// --- Ducking Commands (Modul 07) ---
+
+/// Ducking State abrufen
+#[tauri::command]
+fn get_ducking_state(state: tauri::State<'_, AppState>) -> Result<DuckingParams, String> {
+    let ducking = state.ducking.lock()
+        .map_err(|e| format!("Ducking-Lock-Fehler: {}", e))?;
+    Ok(ducking.params.clone())
+}
+
+/// Ducking aktivieren/deaktivieren
+#[tauri::command]
+fn set_ducking_enabled(enabled: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut ducking = state.ducking.lock()
+        .map_err(|e| format!("Ducking-Lock-Fehler: {}", e))?;
+    ducking.enabled = enabled;
+    Ok(())
+}
+
+/// Ducking Amount setzen (in dB, -30 bis 0)
+#[tauri::command]
+fn set_ducking_amount(amount_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut ducking = state.ducking.lock()
+        .map_err(|e| format!("Ducking-Lock-Fehler: {}", e))?;
+    ducking.set_amount(amount_db);
+    Ok(())
+}
+
+/// Ducking Attack setzen (in ms, 10-500)
+#[tauri::command]
+fn set_ducking_attack(attack_ms: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut ducking = state.ducking.lock()
+        .map_err(|e| format!("Ducking-Lock-Fehler: {}", e))?;
+    ducking.set_attack(attack_ms);
+    Ok(())
+}
+
+/// Ducking Release setzen (in ms, 50-2000)
+#[tauri::command]
+fn set_ducking_release(release_ms: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut ducking = state.ducking.lock()
+        .map_err(|e| format!("Ducking-Lock-Fehler: {}", e))?;
+    ducking.set_release(release_ms);
+    Ok(())
+}
+
+/// Ducking Threshold setzen (in dB, -50 bis 0)
+#[tauri::command]
+fn set_ducking_threshold(threshold_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut ducking = state.ducking.lock()
+        .map_err(|e| format!("Ducking-Lock-Fehler: {}", e))?;
+    ducking.set_threshold(threshold_db);
+    Ok(())
+}
+
+// --- Bleeper Commands (Modul 09) ---
+
+/// Bleeper State abrufen
+#[tauri::command]
+fn get_bleeper_state(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let bleeper = state.bleeper.lock()
+        .map_err(|e| format!("Bleeper-Lock-Fehler: {}", e))?;
+    Ok(serde_json::json!({
+        "mode": format!("{:?}", bleeper.mode),
+        "tone_hz": bleeper.tone_hz,
+        "volume_db": bleeper.volume_db,
+        "armed": bleeper.armed,
+    }))
+}
+
+/// Bleeper Armed setzen
+#[tauri::command]
+fn set_bleeper_armed(armed: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut bleeper = state.bleeper.lock()
+        .map_err(|e| format!("Bleeper-Lock-Fehler: {}", e))?;
+    bleeper.set_armed(armed);
+    Ok(())
+}
+
+/// Bleeper Mode setzen
+#[tauri::command]
+fn set_bleeper_mode(mode: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut bleeper = state.bleeper.lock()
+        .map_err(|e| format!("Bleeper-Lock-Fehler: {}", e))?;
+
+    let bleep_mode = match mode.as_str() {
+        "Beep" => BleepMode::Beep,
+        "Mute" => BleepMode::Mute,
+        "Noise" => BleepMode::Noise,
+        "Reverse" => BleepMode::Reverse,
+        "Custom" => BleepMode::Custom,
+        _ => return Err(format!("Unbekannter Bleeper-Modus: {}", mode)),
+    };
+
+    bleeper.set_mode(bleep_mode);
+    Ok(())
+}
+
+/// Bleeper Tone setzen (in Hz, 200-2000)
+#[tauri::command]
+fn set_bleeper_tone(tone_hz: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut bleeper = state.bleeper.lock()
+        .map_err(|e| format!("Bleeper-Lock-Fehler: {}", e))?;
+    bleeper.set_tone(tone_hz);
+    Ok(())
+}
+
+/// Bleeper Volume setzen (in dB, -30 bis 0)
+#[tauri::command]
+fn set_bleeper_volume(volume_db: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut bleeper = state.bleeper.lock()
+        .map_err(|e| format!("Bleeper-Lock-Fehler: {}", e))?;
+    bleeper.set_volume(volume_db);
+    Ok(())
+}
+
+// --- Calibrate Commands (Modul 24) ---
+
+/// Quick Calibrate durchführen
+#[tauri::command]
+async fn run_calibration(channel_id: String, state: tauri::State<'_, AppState>) -> Result<CalibrationResult, String> {
+    let mut calibrate = state.calibrate.lock()
+        .map_err(|e| format!("Calibrate-Lock-Fehler: {}", e))?;
+
+    // TODO Phase 2: Echte Audio-Samples vom channel_id erfassen
+    let mock_samples = vec![0.0f32; 480000]; // 10 Sekunden bei 48kHz
+
+    calibrate.run_calibration(&mock_samples)
+}
+
 /// Datenbank-Pfad ermitteln (im Tauri App-Data Verzeichnis)
 fn get_db_path(app: &tauri::App) -> Result<String, Box<dyn std::error::Error>> {
     let app_data = app.path().app_data_dir()
@@ -542,7 +681,19 @@ fn main() {
             let voice_fx = VoiceFxManager::new();
             info!("Voice-FX-Manager initialisiert");
 
-            // 13. App-State registrieren
+            // 13. Ducking-Engine erstellen
+            let ducking = DuckingEngine::new();
+            info!("Ducking-Engine initialisiert");
+
+            // 14. Bleeper-Engine erstellen
+            let bleeper = BleeperEngine::new();
+            info!("Bleeper-Engine initialisiert");
+
+            // 15. Calibrate-Engine erstellen
+            let calibrate = CalibrateEngine::new();
+            info!("Calibrate-Engine initialisiert");
+
+            // 16. App-State registrieren
             app.manage(AppState {
                 config_manager,
                 mixer: Mutex::new(mixer),
@@ -554,6 +705,9 @@ fn main() {
                 scenes,
                 soundboard: Mutex::new(soundboard),
                 voice_fx: Mutex::new(voice_fx),
+                ducking: Mutex::new(ducking),
+                bleeper: Mutex::new(bleeper),
+                calibrate: Mutex::new(calibrate),
             });
 
             info!("Setup abgeschlossen");
@@ -603,6 +757,18 @@ fn main() {
             set_voice_fx_preset,
             set_voice_fx_enabled,
             set_voice_fx_drywet,
+            get_ducking_state,
+            set_ducking_enabled,
+            set_ducking_amount,
+            set_ducking_attack,
+            set_ducking_release,
+            set_ducking_threshold,
+            get_bleeper_state,
+            set_bleeper_armed,
+            set_bleeper_mode,
+            set_bleeper_tone,
+            set_bleeper_volume,
+            run_calibration,
             check_for_updates,
             install_update,
         ])

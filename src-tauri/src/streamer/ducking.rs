@@ -26,13 +26,45 @@ pub struct DuckingEngine {
 impl DuckingEngine {
     /// Neue Ducking-Engine erstellen
     pub fn new() -> Self {
-        // TODO: Standard-Parameter
-        todo!("DuckingEngine::new")
+        Self {
+            params: DuckingParams {
+                amount_db: -15.0,  // Standard: -15dB Reduktion
+                attack_ms: 50.0,   // 50ms Attack
+                release_ms: 500.0, // 500ms Release
+                threshold_db: -30.0, // -30dB Threshold
+            },
+            enabled: false,
+        }
     }
 
-    /// Ducking auf Audio-Buffer anwenden
+    /// Ducking-Parameter setzen
+    pub fn set_amount(&mut self, amount_db: f32) {
+        self.params.amount_db = amount_db.clamp(-30.0, 0.0);
+    }
+
+    pub fn set_attack(&mut self, attack_ms: f32) {
+        self.params.attack_ms = attack_ms.clamp(10.0, 500.0);
+    }
+
+    pub fn set_release(&mut self, release_ms: f32) {
+        self.params.release_ms = release_ms.clamp(50.0, 2000.0);
+    }
+
+    pub fn set_threshold(&mut self, threshold_db: f32) {
+        self.params.threshold_db = threshold_db.clamp(-50.0, 0.0);
+    }
+
+    /// Ducking auf Audio-Buffer anwenden (Sidechain-Kompression)
     pub fn process(&mut self, _audio: &mut [f32], _sidechain: &[f32]) {
-        // TODO: Sidechain-Analyse + Gain-Reduktion
-        todo!("DuckingEngine::process")
+        if !self.enabled {
+            return;
+        }
+
+        // TODO Phase 2: Echte Sidechain-Analyse implementieren
+        // - Envelope-Follower auf Sidechain-Signal
+        // - Attack/Release Envelope berechnen
+        // - Gain-Reduktion anwenden wenn Threshold überschritten
+        //
+        // Phase 1: Stub-Implementierung (kein Effekt)
     }
 }
