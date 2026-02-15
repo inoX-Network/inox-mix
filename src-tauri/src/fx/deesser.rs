@@ -57,3 +57,76 @@ impl AudioProcessor for DeEsserModule {
     fn is_bypassed(&self) -> bool { self.bypassed }
     fn reset(&mut self) {}
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SAMPLE_RATE: f32 = 48000.0;
+
+    #[test]
+    fn test_deesser_new() {
+        let ds = DeEsserModule::new(SAMPLE_RATE);
+        assert_eq!(ds.freq_hz, 7000.0);
+        assert_eq!(ds.threshold_db, -20.0);
+        assert_eq!(ds.ratio, 4.0);
+        assert!(!ds.is_bypassed());
+    }
+
+    #[test]
+    fn test_set_threshold() {
+        let mut ds = DeEsserModule::new(SAMPLE_RATE);
+        ds.set_threshold(-25.0).unwrap();
+        assert_eq!(ds.threshold_db, -25.0);
+    }
+
+    #[test]
+    fn test_set_threshold_invalid() {
+        let mut ds = DeEsserModule::new(SAMPLE_RATE);
+        assert!(ds.set_threshold(-50.0).is_err()); // Zu niedrig
+        assert!(ds.set_threshold(5.0).is_err());   // Zu hoch
+    }
+
+    #[test]
+    fn test_bypass() {
+        let mut ds = DeEsserModule::new(SAMPLE_RATE);
+        ds.set_bypass(true);
+        assert!(ds.is_bypassed());
+        ds.set_bypass(false);
+        assert!(!ds.is_bypassed());
+    }
+
+    #[test]
+    fn test_process_bypass() {
+        let mut ds = DeEsserModule::new(SAMPLE_RATE);
+        ds.set_bypass(true);
+
+        let mut buffer_l = vec![0.5, 0.6, 0.7];
+        let mut buffer_r = vec![0.4, 0.5, 0.6];
+        let original_l = buffer_l.clone();
+        let original_r = buffer_r.clone();
+
+        ds.process(&mut buffer_l, &mut buffer_r);
+
+        // Bypass: Kein Processing
+        assert_eq!(buffer_l, original_l);
+        assert_eq!(buffer_r, original_r);
+    }
+
+    #[test]
+    fn test_process_below_threshold() {
+        let mut ds = DeEsserModule::new(SAMPLE_RATE);
+        ds.set_threshold(-20.0).unwrap();
+
+        // Signal unter Threshold
+        let mut buffer_l = vec![0.01; 10];
+        let mut buffer_r = vec![0.01; 10];
+
+        ds.process(&mut buffer_l, &mut buffer_r);
+
+        // Signal sollte weitgehend unverändert sein
+        for sample in &buffer_l {
+            assert!(sample.abs() > 0.008);
+        }
+    }
+}

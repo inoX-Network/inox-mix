@@ -79,3 +79,85 @@ impl AudioProcessor for CompressorModule {
     fn is_bypassed(&self) -> bool { self.bypassed }
     fn reset(&mut self) { self.envelope = 0.0; }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SAMPLE_RATE: f32 = 48000.0;
+
+    #[test]
+    fn test_compressor_new() {
+        let comp = CompressorModule::new(SAMPLE_RATE);
+        assert_eq!(comp.threshold_db, -20.0);
+        assert_eq!(comp.ratio, 4.0);
+        assert_eq!(comp.attack_ms, 5.0);
+        assert_eq!(comp.release_ms, 100.0);
+        assert!(!comp.is_bypassed());
+    }
+
+    #[test]
+    fn test_set_threshold() {
+        let mut comp = CompressorModule::new(SAMPLE_RATE);
+        comp.set_threshold(-30.0).unwrap();
+        assert_eq!(comp.threshold_db, -30.0);
+    }
+
+    #[test]
+    fn test_set_threshold_invalid() {
+        let mut comp = CompressorModule::new(SAMPLE_RATE);
+        assert!(comp.set_threshold(-70.0).is_err()); // Zu niedrig
+        assert!(comp.set_threshold(5.0).is_err());   // Zu hoch
+    }
+
+    #[test]
+    fn test_bypass() {
+        let mut comp = CompressorModule::new(SAMPLE_RATE);
+        comp.set_bypass(true);
+        assert!(comp.is_bypassed());
+        comp.set_bypass(false);
+        assert!(!comp.is_bypassed());
+    }
+
+    #[test]
+    fn test_reset() {
+        let mut comp = CompressorModule::new(SAMPLE_RATE);
+        comp.envelope = 0.5;
+        comp.reset();
+        assert_eq!(comp.envelope, 0.0);
+    }
+
+    #[test]
+    fn test_process_bypass() {
+        let mut comp = CompressorModule::new(SAMPLE_RATE);
+        comp.set_bypass(true);
+
+        let mut buffer_l = vec![0.5, 0.6, 0.7];
+        let mut buffer_r = vec![0.4, 0.5, 0.6];
+        let original_l = buffer_l.clone();
+        let original_r = buffer_r.clone();
+
+        comp.process(&mut buffer_l, &mut buffer_r);
+
+        // Bypass: Kein Processing
+        assert_eq!(buffer_l, original_l);
+        assert_eq!(buffer_r, original_r);
+    }
+
+    #[test]
+    fn test_process_below_threshold() {
+        let mut comp = CompressorModule::new(SAMPLE_RATE);
+        comp.set_threshold(-20.0).unwrap();
+
+        // Signal unter Threshold (0.01 = -40 dB)
+        let mut buffer_l = vec![0.01; 10];
+        let mut buffer_r = vec![0.01; 10];
+
+        comp.process(&mut buffer_l, &mut buffer_r);
+
+        // Signal sollte weitgehend unverändert sein
+        for sample in &buffer_l {
+            assert!(sample.abs() > 0.008); // Minimal verändert durch Envelope
+        }
+    }
+}
