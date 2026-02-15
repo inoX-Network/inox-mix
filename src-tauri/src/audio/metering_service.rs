@@ -30,38 +30,77 @@ impl MeteringService {
         let engine_clone = Arc::clone(&engine);
         let running_clone = Arc::clone(&running);
 
-        // Discover PipeWire Audio-Nodes beim Start
-        if let Ok(devices) = pipewire::list_audio_devices() {
-            info!("PipeWire Audio-Geräte gefunden: {}", devices.len());
-            for device in &devices {
-                info!(
-                    "  - {} (ID: {}, Typ: {}, Kanäle: {})",
-                    device.name, device.id, device.device_type, device.channels
-                );
-            }
+        // ═══════════════════════════════════════════════════════════════
+        // Phase 2c: Dynamische Strip-Registrierung via PipeWire Discovery
+        // ═══════════════════════════════════════════════════════════════
 
-            // Standard-Strips für bekannte Input-Devices registrieren
-            if let Ok(mut eng) = engine.lock() {
-                for device in devices.iter().filter(|d| d.device_type == "input") {
-                    // Strip-ID aus Node-Namen ableiten
-                    let strip_id = if device.name.contains("analog") {
-                        "hw-mic-1".to_string()
-                    } else if device.name.contains("usb") {
-                        "hw-mic-2".to_string()
-                    } else {
-                        format!("hw-input-{}", device.id)
-                    };
+        info!("🔍 Starte PipeWire Node-Discovery...");
 
-                    eng.register_strip(&strip_id);
-                    info!("Strip registriert: {} → {}", strip_id, device.name);
+        match pipewire::list_audio_devices() {
+            Ok(devices) => {
+                let input_count = devices.iter().filter(|d| d.device_type == "input").count();
+                let output_count = devices.iter().filter(|d| d.device_type == "output").count();
+
+                info!("✅ PipeWire-Nodes gefunden: {} Input, {} Output", input_count, output_count);
+
+                if let Ok(mut eng) = engine.lock() {
+                    let mut hw_mic_counter = 1;
+                    let mut virt_counter = 1;
+
+                    for device in devices.iter().filter(|d| d.device_type == "input") {
+                        // Intelligentes Strip-ID Mapping basierend auf Node-Properties
+                        let strip_id = if device.name.contains("alsa_input") {
+                            // Hardware-Input (ALSA)
+                            let id = if device.name.contains("analog") {
+                                format!("hw-mic-{}", hw_mic_counter)
+                            } else if device.name.contains("usb") {
+                                hw_mic_counter += 1;
+                                format!("hw-mic-{}", hw_mic_counter)
+                            } else {
+                                format!("hw-input-{}", device.id)
+                            };
+                            hw_mic_counter += 1;
+                            id
+                        } else if device.name.contains("application") || device.name.contains("client") {
+                            // Virtual-Input (Application-Stream)
+                            let app_name = extract_app_name(&device.name);
+                            format!("virt-{}", app_name)
+                        } else if device.name.contains("loopback") || device.name.contains("monitor") {
+                            // Loopback/Monitor-Device
+                            format!("virt-loop-{}", virt_counter)
+                        } else {
+                            // Generic Input
+                            let id = format!("virt-{}", virt_counter);
+                            virt_counter += 1;
+                            id
+                        };
+
+                        eng.register_strip(&strip_id);
+                        info!(
+                            "  ✓ Strip registriert: {} ← {} (Node {}, {}ch)",
+                            strip_id,
+                            truncate_name(&device.name, 40),
+                            device.id,
+                            device.channels
+                        );
+                    }
+
+                    let total_strips = eng.get_levels().len();
+                    info!("📊 Metering: {} Strips aktiv", total_strips);
                 }
             }
-        } else {
-            warn!("PipeWire Node-Discovery fehlgeschlagen, nutze Fallback-Strips");
-            // Fallback: Standard-Strips registrieren
-            if let Ok(mut eng) = engine.lock() {
-                eng.register_strip("hw-mic-1");
-                eng.register_strip("hw-mic-2");
+            Err(e) => {
+                warn!("⚠️  PipeWire Node-Discovery fehlgeschlagen: {}", e);
+                warn!("📦 Nutze Fallback-Strips (Demo-Modus)");
+
+                // Fallback: Standard-Strips für Demo
+                if let Ok(mut eng) = engine.lock() {
+                    eng.register_strip("hw-mic-1");
+                    eng.register_strip("hw-mic-2");
+                    eng.register_strip("virt-browser");
+                    eng.register_strip("virt-spotify");
+                    info!("  ✓ 4 Fallback-Strips registriert");
+                }
             }
         }
 
@@ -176,24 +215,72 @@ impl Drop for MeteringService {
     }
 }
 
+/// App-Namen aus PipeWire-Node-Namen extrahieren
+fn extract_app_name(node_name: &str) -> String {
+    // Beispiele:
+    // "Firefox.instance123" → "firefox"
+    // "Chromium-browser" → "chromium"
+    // "com.spotify.Client" → "spotify"
+
+    node_name
+        .split('.')
+        .next()
+        .unwrap_or("app")
+        .split('-')
+        .next()
+        .unwrap_or("app")
+        .to_lowercase()
+}
+
+/// Namen auf maximale Länge kürzen (für Logging)
+fn truncate_name(name: &str, max_len: usize) -> String {
+    if name.len() <= max_len {
+        name.to_string()
+    } else {
+        format!("{}...", &name[..max_len - 3])
+    }
+}
+
 /// Simuliere Audio-Daten für Test/Demo
 ///
-/// Phase 1: Generiert sinusförmige Test-Signale
-/// Phase 2: Ersetzt durch echte PipeWire-Capture
+/// Phase 2c: Generiert sinusförmige Test-Signale für dynamisch registrierte Strips
+/// Phase 2d (CPAL): Ersetzt durch echte Audio-Capture
+///
+/// Aktuell: Simulation läuft nur für tatsächlich existierende PipeWire-Nodes
 fn simulate_audio_for_strips(engine: &mut MeteringEngine, strip_ids: &[&str]) {
     use rand::Rng;
     let mut rng = rand::thread_rng();
 
     for strip_id in strip_ids {
-        // Zufällige Amplitude zwischen 0.1 und 0.7 für realistische VU-Meter
-        let amplitude: f32 = rng.gen_range(0.1..0.7);
+        // Amplitude variiert je nach Strip-Typ für realistisches Verhalten
+        let amplitude: f32 = if strip_id.starts_with("hw-") {
+            // Hardware-Mic: Moderater Pegel
+            rng.gen_range(0.3..0.6)
+        } else if strip_id.starts_with("virt-") {
+            // Virtual/App-Audio: Höherer Pegel
+            rng.gen_range(0.4..0.8)
+        } else {
+            // Default
+            rng.gen_range(0.1..0.5)
+        };
+
+        // Frequenz variiert je nach Strip für unterscheidbare Signale
+        let freq_l = if strip_id.contains("mic-1") {
+            440.0  // A4
+        } else if strip_id.contains("mic-2") {
+            554.37  // C#5
+        } else {
+            rng.gen_range(200.0..800.0)
+        };
+
+        let freq_r = freq_l * 1.5; // Harmonisch unterschiedlich
 
         // Sinusförmiges Signal generieren (256 Samples @ 48kHz ≈ 5.3ms)
         let mut samples = Vec::with_capacity(512);
         for i in 0..256 {
-            let t = i as f32 / 256.0;
-            let sample_l = amplitude * (2.0 * std::f32::consts::PI * 440.0 * t).sin();
-            let sample_r = amplitude * 0.8 * (2.0 * std::f32::consts::PI * 880.0 * t).sin();
+            let t = i as f32 / 48000.0;  // Zeit in Sekunden
+            let sample_l = amplitude * (2.0 * std::f32::consts::PI * freq_l * t).sin();
+            let sample_r = amplitude * 0.85 * (2.0 * std::f32::consts::PI * freq_r * t).sin();
             samples.push(sample_l);
             samples.push(sample_r);
         }
