@@ -3,6 +3,7 @@
 pub mod pipewire;
 pub mod mixer;
 pub mod metering;
+pub mod metering_service;
 pub mod bus;
 pub mod routing;
 pub mod master;

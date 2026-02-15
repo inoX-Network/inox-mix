@@ -25,6 +25,7 @@ use audio::mixer::{InputStrip, MixerState};
 use audio::routing::{RoutingManager, RoutingEntry};
 use audio::master::{MasterManager, MasterState};
 use audio::pipewire::{self as pw, AudioDevice};
+use audio::metering_service::MeteringService;
 use config::database::Database;
 use config::ConfigManager;
 use fx::{FxChain, FxModuleInfo, FxModuleType};
@@ -63,6 +64,8 @@ struct AppState {
     bleeper: Mutex<BleeperEngine>,
     /// Calibrate-Engine für Mikrofon-Kalibrierung
     calibrate: Mutex<CalibrateEngine>,
+    /// Metering-Service für Echtzeit-VU-Meter
+    metering: Mutex<MeteringService>,
 }
 
 // --- Tauri Commands ---
@@ -734,7 +737,18 @@ fn main() {
             let calibrate = CalibrateEngine::new();
             info!("Calibrate-Engine initialisiert");
 
-            // 16. App-State registrieren
+            // 16. Metering-Service erstellen und starten
+            let app_handle = app.handle().clone();
+            let metering = MeteringService::start(app_handle);
+            info!("Metering-Service initialisiert");
+
+            // Strips für Metering registrieren
+            metering.register_strip("hw-mic-1");
+            metering.register_strip("hw-mic-2");
+            metering.register_strip("virt-browser");
+            metering.register_strip("virt-spotify");
+
+            // 17. App-State registrieren
             app.manage(AppState {
                 config_manager,
                 mixer: Mutex::new(mixer),
@@ -749,6 +763,7 @@ fn main() {
                 ducking: Mutex::new(ducking),
                 bleeper: Mutex::new(bleeper),
                 calibrate: Mutex::new(calibrate),
+                metering: Mutex::new(metering),
             });
 
             info!("Setup abgeschlossen");

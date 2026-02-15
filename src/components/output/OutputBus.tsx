@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import VUMeter from '../mixer/VUMeter';
 import Slider from '../mixer/Slider';
+import { useStripMetering } from '../../hooks/useMetering';
 
 /** Output Bus Strip mit Fader, VU-Meter und Geräte-Auswahl */
 interface OutputBusProps {
@@ -48,8 +49,11 @@ function OutputBus({
   const [volumeDb, setVolumeDb] = useState(initialVolume);
   const [muted, setMuted] = useState(initialMuted);
   const [recording, setRecording] = useState(initialRecording);
-  const [peak, setPeak] = useState(-60); // TODO: Aus Metering-Hook
-  const [rms, setRms] = useState(-60); // TODO: Aus Metering-Hook
+
+  // Echtzeit-Metering-Daten aus Backend
+  const metering = useStripMetering(busId);
+  const peak = metering?.peak_l ?? -60;
+  const rms = metering?.rms_l ?? -60;
 
   const color = type === 'A' ? 'cyan' : 'orange';
   const colorHex = type === 'A' ? '#00e5ff' : '#ff8c00';
