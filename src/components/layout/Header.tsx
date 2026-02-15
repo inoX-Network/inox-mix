@@ -1,6 +1,8 @@
 // Komponente: Header — obere Leiste mit Logo, PipeWire-Status und System-Info
 
 import { useAppStore } from '../../stores/appStore';
+import RecordingControl from './RecordingControl';
+import ScenesControl from './ScenesControl';
 
 /** Header-Leiste mit App-Name, PipeWire-Status und Audio-Parametern */
 interface HeaderProps {}
@@ -73,8 +75,13 @@ function Header(_props: HeaderProps) {
         )}
       </div>
 
-      {/* Rechts: Streamer-Sidebar Toggle */}
-      <button
+      {/* Rechts: Recording, Scenes, Streamer-Sidebar Toggle */}
+      <div className="flex items-center gap-3">
+        <RecordingControl />
+        <div className="w-[1px] h-4 bg-inox-subtle/20" />
+        <ScenesControl />
+        <div className="w-[1px] h-4 bg-inox-subtle/20" />
+        <button
         id="btn-001"
         aria-label="Stream-Sidebar umschalten"
         onClick={toggleSidebar}
@@ -85,7 +92,8 @@ function Header(_props: HeaderProps) {
         }`}
       >
         STREAM
-      </button>
+        </button>
+      </div>
     </header>
   );
 }
