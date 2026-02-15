@@ -14,6 +14,7 @@ mod updater;
 use recording::{RecordingEngine, RecordingFormat, RecordingInfo, ActiveRecording};
 use config::presets::{SceneManager, Scene, SceneInfo};
 use streamer::soundboard::{SoundboardManager, SoundEntry};
+use streamer::voice_fx::{VoiceFxManager, VoiceFxState, VoiceFxPreset};
 
 use audio::bus::{BusManager, OutputBus};
 use audio::mixer::{InputStrip, MixerState};
@@ -50,6 +51,8 @@ struct AppState {
     scenes: SceneManager,
     /// Soundboard-Manager für Sound-Playback
     soundboard: Mutex<SoundboardManager>,
+    /// Voice-FX-Manager für Stimm-Effekte
+    voice_fx: Mutex<VoiceFxManager>,
 }
 
 // --- Tauri Commands ---
@@ -420,6 +423,42 @@ fn set_soundboard_volume(volume_db: f32, state: tauri::State<'_, AppState>) -> R
     Ok(())
 }
 
+// --- Voice FX Commands (Modul 08) ---
+
+/// Voice FX State abrufen
+#[tauri::command]
+fn get_voice_fx_state(state: tauri::State<'_, AppState>) -> Result<VoiceFxState, String> {
+    let voice_fx = state.voice_fx.lock()
+        .map_err(|e| format!("VoiceFX-Lock-Fehler: {}", e))?;
+    Ok(voice_fx.get_state().clone())
+}
+
+/// Voice FX Preset setzen
+#[tauri::command]
+fn set_voice_fx_preset(preset: VoiceFxPreset, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut voice_fx = state.voice_fx.lock()
+        .map_err(|e| format!("VoiceFX-Lock-Fehler: {}", e))?;
+    voice_fx.set_preset(preset);
+    Ok(())
+}
+
+/// Voice FX aktivieren/deaktivieren
+#[tauri::command]
+fn set_voice_fx_enabled(enabled: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut voice_fx = state.voice_fx.lock()
+        .map_err(|e| format!("VoiceFX-Lock-Fehler: {}", e))?;
+    voice_fx.set_enabled(enabled);
+    Ok(())
+}
+
+/// Voice FX Dry/Wet Mix setzen (0.0-1.0)
+#[tauri::command]
+fn set_voice_fx_drywet(dry_wet: f32, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut voice_fx = state.voice_fx.lock()
+        .map_err(|e| format!("VoiceFX-Lock-Fehler: {}", e))?;
+    voice_fx.set_dry_wet(dry_wet)
+}
+
 /// Datenbank-Pfad ermitteln (im Tauri App-Data Verzeichnis)
 fn get_db_path(app: &tauri::App) -> Result<String, Box<dyn std::error::Error>> {
     let app_data = app.path().app_data_dir()
@@ -498,7 +537,11 @@ fn main() {
             let soundboard = SoundboardManager::new(db.clone());
             info!("Soundboard-Manager initialisiert");
 
-            // 12. App-State registrieren
+            // 12. Voice-FX-Manager erstellen
+            let voice_fx = VoiceFxManager::new();
+            info!("Voice-FX-Manager initialisiert");
+
+            // 13. App-State registrieren
             app.manage(AppState {
                 config_manager,
                 mixer: Mutex::new(mixer),
@@ -509,6 +552,7 @@ fn main() {
                 recording: Mutex::new(recording),
                 scenes,
                 soundboard: Mutex::new(soundboard),
+                voice_fx: Mutex::new(voice_fx),
             });
 
             info!("Setup abgeschlossen");
@@ -554,6 +598,10 @@ fn main() {
             get_sounds,
             set_sound_volume,
             set_soundboard_volume,
+            get_voice_fx_state,
+            set_voice_fx_preset,
+            set_voice_fx_enabled,
+            set_voice_fx_drywet,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Tauri-Anwendung");
