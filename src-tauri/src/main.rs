@@ -18,6 +18,7 @@ use streamer::bleeper::{BleepMode, BleeperEngine};
 use streamer::ducking::{DuckingEngine, DuckingParams};
 use streamer::soundboard::{SoundEntry, SoundboardManager};
 use streamer::voice_fx::{VoiceFxManager, VoiceFxPreset, VoiceFxState};
+use stt::{ProfanityCategory, ProfanityWord, SttEngineType, SttManager};
 use updater::{check_for_updates, install_update};
 
 use audio::bus::{BusManager, OutputBus};
@@ -66,6 +67,8 @@ struct AppState {
     calibrate: Mutex<CalibrateEngine>,
     /// Metering-Service für Echtzeit-VU-Meter
     metering: Mutex<MeteringService>,
+    /// STT-Manager für Speech-to-Text (VOSK + Whisper)
+    stt: Mutex<SttManager>,
 }
 
 // --- Tauri Commands ---
@@ -757,6 +760,97 @@ fn set_bleeper_volume(volume_db: f32, state: tauri::State<'_, AppState>) -> Resu
     Ok(())
 }
 
+// --- STT Commands (Speech-to-Text) ---
+
+/// STT-Engine wechseln (VOSK oder Whisper)
+#[tauri::command]
+fn set_stt_engine(engine: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let engine_type = match engine.as_str() {
+        "vosk" => SttEngineType::Vosk,
+        "whisper" => SttEngineType::Whisper,
+        _ => return Err(format!("Unbekannte STT-Engine: {}", engine)),
+    };
+
+    let mut stt = state
+        .stt
+        .lock()
+        .map_err(|e| format!("STT-Lock-Fehler: {}", e))?;
+
+    stt.set_engine(engine_type)
+}
+
+/// Profanity-Wort hinzufügen
+#[tauri::command]
+fn add_profanity_word(
+    word: String,
+    category: String,
+    language: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let cat = ProfanityCategory::from_str(&category)
+        .ok_or_else(|| format!("Ungültige Kategorie: {}", category))?;
+
+    let mut stt = state
+        .stt
+        .lock()
+        .map_err(|e| format!("STT-Lock-Fehler: {}", e))?;
+
+    stt.add_profanity_word(&word, cat, &language)
+}
+
+/// Profanity-Wort entfernen
+#[tauri::command]
+fn remove_profanity_word(word: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut stt = state
+        .stt
+        .lock()
+        .map_err(|e| format!("STT-Lock-Fehler: {}", e))?;
+
+    stt.remove_profanity_word(&word)
+}
+
+/// Alle Profanity-Wörter abrufen (optional gefiltert)
+#[tauri::command]
+fn get_profanity_words(
+    category: Option<String>,
+    language: Option<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<ProfanityWord>, String> {
+    let cat = if let Some(c) = category {
+        Some(
+            ProfanityCategory::from_str(&c)
+                .ok_or_else(|| format!("Ungültige Kategorie: {}", c))?,
+        )
+    } else {
+        None
+    };
+
+    let stt = state
+        .stt
+        .lock()
+        .map_err(|e| format!("STT-Lock-Fehler: {}", e))?;
+
+    Ok(stt.get_profanity_words(cat, language.as_deref()))
+}
+
+/// STT-Status abrufen
+#[tauri::command]
+fn get_stt_status(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let stt = state
+        .stt
+        .lock()
+        .map_err(|e| format!("STT-Lock-Fehler: {}", e))?;
+
+    Ok(serde_json::json!({
+        "active_engine": match stt.active_engine() {
+            SttEngineType::Vosk => "vosk",
+            SttEngineType::Whisper => "whisper",
+        },
+        "vosk_available": stt.is_vosk_available(),
+        "whisper_available": stt.is_whisper_available(),
+    }))
+}
+
 // --- Calibrate Commands (Modul 24) ---
 
 /// Quick Calibrate durchführen
@@ -863,7 +957,7 @@ fn main() {
             info!("Soundboard-Manager initialisiert");
 
             // 12. Voice-FX-Manager erstellen
-            let voice_fx = VoiceFxManager::new();
+            let voice_fx = VoiceFxManager::new(48000); // Standard Sample-Rate
             info!("Voice-FX-Manager initialisiert");
 
             // 13. Ducking-Engine erstellen
@@ -874,7 +968,35 @@ fn main() {
             let bleeper = BleeperEngine::new();
             info!("Bleeper-Engine initialisiert");
 
-            // 15. Calibrate-Engine erstellen
+            // 15. STT-Manager erstellen (VOSK + Whisper)
+            let vosk_model_path = config_manager
+                .get("vosk_model_path")
+                .ok()
+                .flatten();
+
+            let whisper_model_path = config_manager
+                .get("whisper_model_path")
+                .ok()
+                .flatten();
+
+            let stt = match SttManager::new(
+                db.clone(),
+                vosk_model_path.as_deref(),
+                whisper_model_path.as_deref(),
+            ) {
+                Ok(mgr) => {
+                    info!("STT-Manager initialisiert");
+                    mgr
+                }
+                Err(e) => {
+                    warn!("STT-Manager konnte nicht initialisiert werden: {}", e);
+                    warn!("  Setze 'vosk_model_path' oder 'whisper_model_path' in Config");
+                    // Fallback: STT ohne Modell (deaktiviert)
+                    SttManager::new(db.clone(), None, None).unwrap()
+                }
+            };
+
+            // 16. Calibrate-Engine erstellen
             let calibrate = CalibrateEngine::new();
             info!("Calibrate-Engine initialisiert");
 
@@ -903,6 +1025,7 @@ fn main() {
                 voice_fx: Mutex::new(voice_fx),
                 ducking: Mutex::new(ducking),
                 bleeper: Mutex::new(bleeper),
+                stt: Mutex::new(stt),
                 calibrate: Mutex::new(calibrate),
                 metering: Mutex::new(metering),
             });
@@ -968,6 +1091,11 @@ fn main() {
             set_bleeper_mode,
             set_bleeper_tone,
             set_bleeper_volume,
+            set_stt_engine,
+            add_profanity_word,
+            remove_profanity_word,
+            get_profanity_words,
+            get_stt_status,
             run_calibration,
             check_for_updates,
             install_update,

@@ -2,8 +2,12 @@
 
 pub mod bleeper;
 pub mod ducking;
+pub mod ladspa_ffi;
+pub mod ladspa_instance;
+pub mod ladspa_loader;
 pub mod soundboard;
 pub mod voice_fx;
+pub mod voice_fx_engine;
 
 /// Streamer-Modul koordiniert alle Stream-bezogenen Funktionen
 #[derive(Debug)]

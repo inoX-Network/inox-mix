@@ -1,9 +1,9 @@
 // Modul: streamer/voice_fx — Stimm-Effekte (Robot, Vader, Chipmunk, etc.)
 //
-// Phase 1: State Management und Struktur
-// TODO Phase 2: PipeWire Filter-Chain Integration mit LADSPA/LV2 Plugins
+// Phase 2: LADSPA-Integration (COMPLETED)
 // SPEC: 08-voice-fx
 
+use super::voice_fx_engine::VoiceFxEngine;
 use serde::{Deserialize, Serialize};
 
 /// Voice FX Presets (Stimm-Effekte)
@@ -75,34 +75,44 @@ impl Default for VoiceFxState {
     }
 }
 
-/// Voice FX Manager (State Management)
+/// Voice FX Manager (mit LADSPA-Engine)
 ///
-/// Phase 1: Nur State-Verwaltung
-/// TODO Phase 2: PipeWire Filter-Chain mit LADSPA/LV2
+/// Phase 2: LADSPA-Integration (COMPLETED)
 pub struct VoiceFxManager {
     state: VoiceFxState,
+    engine: VoiceFxEngine,
 }
 
 impl VoiceFxManager {
     /// Neuen Voice FX Manager erstellen
-    pub fn new() -> Self {
+    pub fn new(sample_rate: u64) -> Self {
+        let engine = VoiceFxEngine::new(sample_rate);
+
+        log::info!(
+            "Voice FX Manager erstellt ({} LADSPA-Plugins verfügbar)",
+            engine.plugin_count()
+        );
+
         Self {
             state: VoiceFxState::default(),
+            engine,
         }
     }
 
     /// Preset setzen
     pub fn set_preset(&mut self, preset: VoiceFxPreset) {
         self.state.preset = preset;
-        log::info!("Voice FX Preset: {:?}", preset);
-        // TODO: PipeWire Filter-Chain konfigurieren
+
+        // LADSPA-Plugin-Chain laden
+        if let Err(e) = self.engine.set_preset(preset) {
+            log::error!("Fehler beim Laden von Preset {:?}: {}", preset, e);
+        }
     }
 
     /// Enabled setzen (Master-Toggle)
     pub fn set_enabled(&mut self, enabled: bool) {
         self.state.enabled = enabled;
-        log::info!("Voice FX Enabled: {}", enabled);
-        // TODO: PipeWire Filter-Chain aktivieren/deaktivieren
+        self.engine.set_enabled(enabled);
     }
 
     /// Dry/Wet Mix setzen (0.0-1.0)
@@ -112,7 +122,25 @@ impl VoiceFxManager {
         }
         self.state.dry_wet = dry_wet;
         log::info!("Voice FX Dry/Wet: {:.0}%", dry_wet * 100.0);
-        // TODO: Mix-Regler in PipeWire Filter-Chain setzen
+        Ok(())
+    }
+
+    /// Audio verarbeiten
+    pub fn process(&mut self, input: &[f32], output: &mut [f32]) -> Result<(), String> {
+        if !self.state.enabled {
+            output.copy_from_slice(input);
+            return Ok(());
+        }
+
+        // Engine processing
+        self.engine.process(input, output)?;
+
+        // Dry/Wet Mix
+        let dry_wet = self.state.dry_wet;
+        for (i, sample) in output.iter_mut().enumerate() {
+            *sample = input[i] * (1.0 - dry_wet) + *sample * dry_wet;
+        }
+
         Ok(())
     }
 
@@ -120,11 +148,16 @@ impl VoiceFxManager {
     pub fn get_state(&self) -> &VoiceFxState {
         &self.state
     }
+
+    /// Anzahl verfügbarer LADSPA-Plugins
+    pub fn plugin_count(&self) -> usize {
+        self.engine.plugin_count()
+    }
 }
 
 impl Default for VoiceFxManager {
     fn default() -> Self {
-        Self::new()
+        Self::new(48000) // Default Sample-Rate
     }
 }
 

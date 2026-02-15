@@ -97,6 +97,13 @@ impl Database {
                 created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
             );
 
+            CREATE TABLE IF NOT EXISTS profanity_words (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                word     TEXT NOT NULL UNIQUE,
+                category TEXT NOT NULL DEFAULT 'custom',
+                language TEXT NOT NULL DEFAULT 'de'
+            );
+
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY NOT NULL
             );",
@@ -169,6 +176,62 @@ impl Database {
         let rows = stmt.query_map([], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         })?;
+
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row?);
+        }
+
+        Ok(result)
+    }
+
+    /// Generische SQL-Execute-Methode (INSERT, UPDATE, DELETE)
+    ///
+    /// # Parameter
+    /// - `sql`: SQL-Statement
+    /// - `params`: Parameter für prepared statement
+    ///
+    /// # Rückgabe
+    /// - Anzahl der betroffenen Zeilen
+    pub fn execute<P>(&self, sql: &str, params: P) -> Result<usize, Box<dyn std::error::Error>>
+    where
+        P: rusqlite::Params,
+    {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| format!("Mutex-Fehler: {}", e))?;
+
+        let rows = conn.execute(sql, params)?;
+        Ok(rows)
+    }
+
+    /// Generische SQL-Query-Methode (SELECT)
+    ///
+    /// # Parameter
+    /// - `sql`: SQL-Query
+    /// - `params`: Parameter für prepared statement
+    /// - `mapper`: Closure zum Mappen von Rows auf Result-Typ
+    ///
+    /// # Rückgabe
+    /// - Vec mit gemappten Ergebnissen
+    pub fn query<T, F, P>(
+        &self,
+        sql: &str,
+        params: P,
+        mapper: F,
+    ) -> Result<Vec<T>, Box<dyn std::error::Error>>
+    where
+        F: FnMut(&rusqlite::Row) -> Result<T, rusqlite::Error>,
+        P: rusqlite::Params,
+    {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| format!("Mutex-Fehler: {}", e))?;
+
+        let mut stmt = conn.prepare(sql)?;
+        let rows = stmt.query_map(params, mapper)?;
 
         let mut result = Vec::new();
         for row in rows {

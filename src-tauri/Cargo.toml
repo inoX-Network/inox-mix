@@ -21,6 +21,11 @@ cpal = "0.15"      # Cross-Platform Audio Library
 ringbuf = "0.4"
 rodio = "0.19"
 hound = "3.5"      # WAV Encoder/Decoder
+libloading = "0.8" # Dynamic Library Loading für LADSPA Plugins
+
+# Speech-to-Text (STT)
+vosk = "0.3"         # VOSK Speech Recognition (Live)
+whisper-rs = "0.12"  # Whisper Speech Recognition (Offline, High Accuracy)
 
 # Async / Concurrency
 tokio = { version = "1", features = ["full"] }
@@ -42,6 +47,7 @@ chrono = "0.4"  # Datum/Zeit
 dirs = "5.0"    # Platform-spezifische Verzeichnisse
 uuid = { version = "1.0", features = ["v4", "serde"] }  # UUID-Generierung
 rand = "0.8"    # Random Number Generation für Audio-Simulation
+shellexpand = "3.0"  # Path expansion (~/ etc.)
 
 [features]
 default = ["custom-protocol"]
